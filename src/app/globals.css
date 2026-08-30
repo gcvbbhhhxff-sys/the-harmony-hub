@@ -3,15 +3,20 @@
 @tailwind utilities;
 
 :root {
-  --color-primary: #C1440E;
-  --color-primary-dark: #8C3009;
-  --color-secondary: #1C1810;
-  --color-background: #FDF8F3;
-  --color-accent: #D4A24C;
+  --color-primary: #C9972A;
+  --color-primary-dark: #A67818;
+  --color-secondary: #0D0D0D;
+  --color-background: #FBF8F2;
+  --color-surface: #FFFFFF;
+  --color-accent-warm: #E0562B;
+  --color-accent-cool: #2E7DC0;
+  --color-text: #1A1A1A;
   --color-success: #2F7A4D;
   --color-danger: #B3261E;
 }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
-body { background: var(--color-background); color: var(--color-secondary); }
+body { background: var(--color-background); color: var(--color-text); font-family: var(--font-body), system-ui, sans-serif; }
+h1, h2, h3, h4 { font-family: var(--font-heading), var(--font-body), system-ui, sans-serif; }
+a { color: inherit; }
