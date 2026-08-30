@@ -1,1 +1,0 @@
-Mobile-first storefront refactor is being applied in the existing MenuBrowser component; this file is temporary and can be removed after CI validation.

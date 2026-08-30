@@ -1,10 +1,173 @@
 "use client";
+
 import Image from "next/image";
-import { useEffect,useMemo,useState } from "react";
-import { Search,ShoppingBag } from "lucide-react";
-import { Button } from "@/components/ui/button";import { Card } from "@/components/ui/card";import { Input } from "@/components/ui/input";import { Logo } from "@/components/ui/logo";import { ProductDetail } from "@/components/cliente/product-detail";import { useCartStore,cartTotal } from "@/lib/cart/store";
-import type { Category,Product,RestaurantSettings } from "@/types/menu";import type { MenuAddon,MenuOption,MenuOptionGroup } from "@/types/cart";
-function isOpen(now:Date,schedule:RestaurantSettings["horario_funcionamento"]){const days=["domingo","segunda","terca","quarta","quinta","sexta","sabado"];const item=schedule?.[days[now.getDay()]||"domingo"];if(!item||item.ativo===false)return false;const hhmm=`${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;return item.abertura<=hhmm&&hhmm<item.fechamento;}
-function nextOpening(now:Date,schedule:RestaurantSettings["horario_funcionamento"]){const days=["domingo","segunda","terca","quarta","quinta","sexta","sabado"];for(let offset=0;offset<7;offset++){const d=new Date(now);d.setDate(now.getDate()+offset);const item=schedule?.[days[d.getDay()]||"domingo"];if(item?.ativo!==false&&item?.abertura)return item.abertura}return null;}
-type Props={categories:Category[];products:Product[];settings:RestaurantSettings;optionGroups:MenuOptionGroup[];options:MenuOption[];addons:MenuAddon[];productAddons:{product_id:string;addon_id:string}[]};
-export function MenuBrowser({categories,products,settings,optionGroups,options,addons,productAddons}:Props){const[query,setQuery]=useState("");const[active,setActive]=useState(categories[0]?.id??"");const[open,setOpen]=useState(false);const[selectedProduct,setSelectedProduct]=useState<Product|null>(null);const items=useCartStore(s=>s.items);const[isCurrentlyOpen,setIsCurrentlyOpen]=useState(false);useEffect(()=>{const tick=()=>setIsCurrentlyOpen(isOpen(new Date(),settings.horario_funcionamento));tick();const id=window.setInterval(tick,60000);return()=>window.clearInterval(id)},[settings.horario_funcionamento]);useEffect(()=>{const observer=new IntersectionObserver(entries=>{const visible=entries.filter(e=>e.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0];if(visible)setActive(visible.target.id)},{rootMargin:"-25% 0px -60% 0px",threshold:[0.1,0.4,0.7]});categories.forEach(c=>{const el=document.getElementById(c.id);if(el)observer.observe(el)});return()=>observer.disconnect()},[categories]);const filtered=useMemo(()=>{const term=query.trim().toLocaleLowerCase("pt-BR");return products.filter(p=>!term||p.nome.toLocaleLowerCase("pt-BR").includes(term)||p.descricao?.toLocaleLowerCase("pt-BR").includes(term))},[products,query]);const grouped=categories.map(c=>({category:c,items:filtered.filter(p=>p.category_id===c.id)})).filter(g=>g.items.length>0);const scrollTo=(id:string)=>document.getElementById(id)?.scrollIntoView({behavior:"smooth",block:"start"});const total=cartTotal(items);const opening=!isCurrentlyOpen?nextOpening(new Date(),settings.horario_funcionamento):null;return <main><header className="bg-[var(--color-secondary)] text-white"><div className="mx-auto max-w-6xl px-4 py-6 md:px-6"><div className="flex items-center justify-between gap-4"><div className="flex items-center gap-4"><Logo size={58}/><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">{settings.nome}</p><h1 className="mt-1 text-2xl font-extrabold uppercase tracking-wide md:text-3xl">Cardápio</h1></div></div><div className="text-right"><span className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold">{isCurrentlyOpen?"Aberto agora":"Fechado"}</span>{!isCurrentlyOpen&&opening&&<p className="mt-2 text-xs text-white/65">Abre às {opening}</p>}</div></div></div></header><div className="sticky top-0 z-30 border-b bg-[var(--color-background)]/95 backdrop-blur"><div className="mx-auto max-w-6xl px-4 py-3 md:px-6"><div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50"/><Input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar no cardápio" className="pl-9"/></div><nav className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="Categorias">{categories.map(c=><button key={c.id} type="button" onClick={()=>scrollTo(c.id)} className={`whitespace-nowrap rounded-full px-3 py-2 text-sm font-semibold transition ${active===c.id?"bg-[var(--color-secondary)] text-white":"bg-white/80"}`}>{c.nome}</button>)}</nav></div></div><div className="mx-auto max-w-6xl space-y-10 px-4 pb-28 pt-8 md:px-6">{grouped.map(({category,items})=><section key={category.id} id={category.id} className="scroll-mt-36"><h2 className="text-xl font-extrabold uppercase tracking-wide">{category.nome}</h2><div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{items.map(product=><Card key={product.id} className="overflow-hidden p-0"><div className="aspect-[4/3] bg-black/5">{product.imagem_url?<Image src={product.imagem_url} alt={product.nome} width={640} height={480} className="h-full w-full object-cover" unoptimized/>:null}</div><div className="p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-bold">{product.nome}</h3>{product.descricao&&<p className="mt-1 text-sm opacity-65">{product.descricao}</p>}</div><strong className="whitespace-nowrap text-[var(--color-primary)]">R$ {product.preco.toFixed(2).replace(".",",")}</strong></div><Button className="mt-4 w-full" disabled={!isCurrentlyOpen} onClick={()=>{setSelectedProduct(product);setOpen(true)}}>{isCurrentlyOpen?"Adicionar":"Fechado"}</Button></div></Card>)}</div></section>)}{grouped.length===0&&<div className="py-16 text-center text-sm opacity-65">Nenhum produto encontrado.</div>}</div><div className="fixed inset-x-4 bottom-4 z-40 mx-auto max-w-md"><Button size="lg" className="w-full justify-between shadow-lg" onClick={()=>window.location.href="/carrinho"}><span className="flex items-center gap-2"><ShoppingBag className="h-5 w-5"/>Carrinho {items.length>0?`(${items.length})`:""}</span><span>R$ {total.toFixed(2).replace(".",",")}</span></Button></div>{selectedProduct&&<ProductDetail product={selectedProduct} groups={optionGroups.filter(g=>g.product_id===selectedProduct.id)} options={options} addons={addons} availableAddonIds={productAddons.filter(x=>x.product_id===selectedProduct.id).map(x=>x.addon_id)} open={open} onClose={()=>setOpen(false)}/>}</main>}
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { Beef, ChevronRight, Clock3, Leaf, Search, ShoppingBag, Soup, Utensils, Wheat } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Logo } from "@/components/ui/logo";
+import { ProductDetail } from "@/components/cliente/product-detail";
+import { cartTotal, useCartStore } from "@/lib/cart/store";
+import type { MenuAddon, MenuOption, MenuOptionGroup } from "@/types/cart";
+import type { Category, Product, RestaurantSettings } from "@/types/menu";
+
+function getCategoryIcon(name: string) {
+  const value = name.toLocaleLowerCase("pt-BR");
+  if (value.includes("churrasc")) return Beef;
+  if (value.includes("salada")) return Leaf;
+  if (value.includes("feij")) return Soup;
+  if (value.includes("arroz")) return Wheat;
+  return Utensils;
+}
+
+function isOpenNow(now: Date, schedule: RestaurantSettings["horario_funcionamento"]) {
+  const days = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
+  const item = schedule?.[days[now.getDay()] || "domingo"];
+  if (!item || item.ativo === false || !item.abertura || !item.fechamento) return false;
+  const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  return item.abertura <= time && time < item.fechamento;
+}
+
+function getNextOpening(now: Date, schedule: RestaurantSettings["horario_funcionamento"]) {
+  const days = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
+  for (let offset = 0; offset < 7; offset += 1) {
+    const date = new Date(now);
+    date.setDate(now.getDate() + offset);
+    const item = schedule?.[days[date.getDay()] || "domingo"];
+    if (item?.ativo !== false && item?.abertura) return item.abertura;
+  }
+  return null;
+}
+
+type Props = {
+  categories: Category[];
+  products: Product[];
+  settings: RestaurantSettings;
+  optionGroups: MenuOptionGroup[];
+  options: MenuOption[];
+  addons: MenuAddon[];
+  productAddons: { product_id: string; addon_id: string }[];
+};
+
+export function MenuBrowser({ categories, products, settings, optionGroups, options, addons, productAddons }: Props) {
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState(categories[0]?.id ?? "");
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [isCurrentlyOpen, setIsCurrentlyOpen] = useState(false);
+  const items = useCartStore((state) => state.items);
+  const total = cartTotal(items);
+
+  useEffect(() => {
+    const tick = () => setIsCurrentlyOpen(isOpenNow(new Date(), settings.horario_funcionamento));
+    tick();
+    const timer = window.setInterval(tick, 60_000);
+    return () => window.clearInterval(timer);
+  }, [settings.horario_funcionamento]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible) setActive(visible.target.id);
+      },
+      { rootMargin: "-25% 0px -60% 0px", threshold: [0.1, 0.35, 0.7] },
+    );
+    categories.forEach((category) => {
+      const node = document.getElementById(category.id);
+      if (node) observer.observe(node);
+    });
+    return () => observer.disconnect();
+  }, [categories]);
+
+  const filtered = useMemo(() => {
+    const term = query.trim().toLocaleLowerCase("pt-BR");
+    if (!term) return products;
+    return products.filter((product) => `${product.nome} ${product.descricao ?? ""}`.toLocaleLowerCase("pt-BR").includes(term));
+  }, [products, query]);
+
+  const grouped = categories.map((category) => ({ category, items: filtered.filter((product) => product.category_id === category.id) })).filter((group) => group.items.length > 0);
+  const opening = !isCurrentlyOpen ? getNextOpening(new Date(), settings.horario_funcionamento) : null;
+
+  const openProduct = (product: Product) => {
+    setSelectedProduct(product);
+    setDetailOpen(true);
+  };
+
+  return (
+    <main className="min-h-screen pb-24">
+      <header className="sticky top-0 z-50 border-b border-black/10 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:h-[72px] sm:px-6">
+          <Link href="/" className="flex min-w-0 items-center gap-3" aria-label={settings.nome}>
+            <Logo size={48} className="shrink-0" />
+            <div className="min-w-0 leading-tight">
+              <p className="truncate text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--color-muted)]">Restaurante</p>
+              <p className="truncate text-sm font-extrabold sm:text-base">Tabajara’s Churrascaria</p>
+            </div>
+          </Link>
+          <Link href="/carrinho" aria-label="Abrir carrinho">
+            <Button variant="outline" size="sm" className="gap-2 rounded-full border-black/10 px-3 shadow-sm">
+              <ShoppingBag className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Meu pedido</span>
+              {items.length > 0 && <span className="rounded-full bg-[var(--color-primary)] px-2 py-0.5 text-xs font-black text-black">{items.length}</span>}
+            </Button>
+          </Link>
+        </div>
+      </header>
+
+      <section className="bg-[var(--color-secondary)] text-white">
+        <div className="mx-auto grid max-w-7xl gap-6 px-4 py-9 sm:px-6 sm:py-12 lg:grid-cols-[1.35fr_.65fr] lg:items-center">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[var(--color-primary)]">Tradição • Brasa • Comida caseira</p>
+            <h1 className="mt-3 max-w-3xl text-3xl font-black leading-[1.05] sm:text-5xl">Sabor de verdade, do jeito que você gosta.</h1>
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-white/70 sm:text-base">Escolha seus pratos, personalize o pedido e acompanhe tudo pelo celular sem complicação.</p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold"><span className={`h-2.5 w-2.5 rounded-full ${isCurrentlyOpen ? "bg-emerald-400" : "bg-red-400"}`} />{isCurrentlyOpen ? "Aberto agora" : opening ? `Abre às ${opening}` : "Fechado"}</span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-2 text-xs text-white/70"><Clock3 className="h-4 w-4" aria-hidden="true" />{settings.tempo_estimado || "40–60 min"}</span>
+            </div>
+          </div>
+          <div className="hidden justify-self-end rounded-3xl border border-white/10 bg-white/[0.04] p-5 lg:block"><Logo size={142} /><p className="mt-3 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-white/50">Tabajara’s Churrascaria</p></div>
+        </div>
+      </section>
+
+      <section className="sticky top-16 z-40 border-b border-black/10 bg-[var(--color-background)]/95 backdrop-blur sm:top-[72px]">
+        <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
+          <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-muted)]" aria-hidden="true" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar prato, carne, salada..." aria-label="Buscar no cardápio" className="h-11 rounded-xl border-black/10 bg-white pl-10 shadow-sm" /></div>
+          <nav className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="Categorias do cardápio">
+            {categories.map((category) => { const Icon = getCategoryIcon(category.nome); return <button key={category.id} type="button" onClick={() => document.getElementById(category.id)?.scrollIntoView({ behavior: "smooth", block: "start" })} className={`inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full px-3.5 text-sm font-semibold ${active === category.id ? "bg-[var(--color-secondary)] text-white" : "bg-white text-[var(--color-text)] shadow-sm ring-1 ring-black/5"}`}><Icon className="h-4 w-4" aria-hidden="true" />{category.nome}</button>; })}
+          </nav>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
+        {grouped.map(({ category, items: categoryItems }) => (
+          <section key={category.id} id={category.id} className="scroll-mt-36 py-2 sm:py-4">
+            <div className="mb-4 flex items-end justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--color-primary-dark)]">Nossa seleção</p><h2 className="mt-1 text-xl font-black sm:text-2xl">{category.nome}</h2></div><span className="hidden text-xs text-[var(--color-muted)] sm:block">{categoryItems.length} opções</span></div>
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {categoryItems.map((product) => (
+                <Card key={product.id} className="group overflow-hidden border-black/5 bg-white p-0 shadow-[0_8px_30px_rgba(17,17,17,.05)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_36px_rgba(17,17,17,.08)]">
+                  <button type="button" className="flex w-full items-stretch text-left md:block" onClick={() => openProduct(product)}>
+                    <div className="relative h-28 w-28 shrink-0 overflow-hidden bg-[var(--color-surface-soft)] md:h-52 md:w-full">
+                      {product.imagem_url ? <Image src={product.imagem_url} alt={product.nome} fill sizes="(max-width: 768px) 112px, (max-width: 1280px) 33vw, 420px" className="object-cover transition duration-300 group-hover:scale-[1.03]" unoptimized /> : <div className="flex h-full items-center justify-center bg-[var(--color-surface-soft)] text-[var(--color-primary-dark)]"><Utensils className="h-8 w-8" aria-hidden="true" /></div>}
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-col justify-between p-3 md:p-4"><div><div className="flex items-start justify-between gap-3"><h3 className="text-sm font-extrabold leading-5 sm:text-base">{product.nome}</h3><span className="shrink-0 text-sm font-black text-[var(--color-primary-dark)]">R$ {product.preco.toFixed(2).replace(".", ",")}</span></div>{product.descricao && <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--color-muted)]">{product.descricao}</p>}</div><div className="mt-3 inline-flex items-center justify-between text-xs font-bold"><span>{isCurrentlyOpen ? "Personalizar" : "Ver detalhes"}</span><ChevronRight className="h-4 w-4" aria-hidden="true" /></div></div>
+                  </button>
+                  <div className="hidden px-4 pb-4 md:block"><Button className="w-full rounded-xl" disabled={!isCurrentlyOpen} onClick={() => openProduct(product)}>{isCurrentlyOpen ? "Adicionar ao pedido" : "Restaurante fechado"}</Button></div>
+                </Card>
+              ))}
+            </div>
+          </section>
+        ))}
+        {grouped.length === 0 && <div className="rounded-2xl border border-dashed border-black/10 bg-white p-10 text-center"><Search className="mx-auto h-8 w-8 text-[var(--color-muted)]" aria-hidden="true" /><h2 className="mt-3 font-bold">Nada encontrado</h2><p className="mt-1 text-sm text-[var(--color-muted)]">Tente outro termo ou escolha uma categoria.</p></div>}
+      </div>
+
+      <footer className="border-t border-black/10 bg-white"><div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-7 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6"><div><p className="font-bold">{settings.nome}</p><p className="mt-1 text-xs text-[var(--color-muted)]">Tradição e qualidade para você e sua família.</p></div><div className="flex items-center gap-4 text-xs text-[var(--color-muted)]">{settings.whatsapp && <a href={`https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="font-semibold text-[var(--color-secondary)]">WhatsApp</a>}<Link href="/politica-de-privacidade">Privacidade</Link></div></div></footer>
+
+      <div className="fixed inset-x-3 bottom-3 z-50 sm:inset-x-auto sm:right-6 sm:w-auto"><Link href="/carrinho" className="block"><Button size="lg" className="w-full min-w-[min(92vw,22rem)] justify-between rounded-2xl bg-[var(--color-secondary)] px-4 text-white shadow-[0_12px_32px_rgba(0,0,0,.22)] hover:bg-black sm:min-w-[18rem]"><span className="flex items-center gap-2"><ShoppingBag className="h-5 w-5" aria-hidden="true" />{items.length ? `${items.length} ${items.length === 1 ? "item" : "itens"}` : "Seu pedido"}</span><span>R$ {total.toFixed(2).replace(".", ",")}</span></Button></Link></div>
+
+      {selectedProduct && <ProductDetail product={selectedProduct} groups={optionGroups.filter((group) => group.product_id === selectedProduct.id)} options={options} addons={addons} availableAddonIds={productAddons.filter((link) => link.product_id === selectedProduct.id).map((link) => link.addon_id)} open={detailOpen} onClose={() => setDetailOpen(false)} />}
+    </main>
+  );
+}
