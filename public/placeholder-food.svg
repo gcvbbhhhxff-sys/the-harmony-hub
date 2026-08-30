@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-labelledby="title desc">
+  <title id="title">Imagem indisponível</title>
+  <desc id="desc">Imagem padrão para itens do cardápio sem fotografia disponível.</desc>
+  <rect width="1200" height="800" fill="#eeeae1"/>
+  <circle cx="600" cy="350" r="150" fill="#e2d8c7"/>
+  <path d="M430 560h340c-34 74-95 112-170 112s-136-38-170-112Z" fill="#d2bf9c"/>
+  <circle cx="550" cy="338" r="18" fill="#aa7f18"/>
+  <circle cx="650" cy="338" r="18" fill="#aa7f18"/>
+  <path d="M535 425c42 34 88 34 130 0" fill="none" stroke="#aa7f18" stroke-width="14" stroke-linecap="round"/>
+  <text x="600" y="740" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#5a554d">Imagem indisponível</text>
+</svg>
