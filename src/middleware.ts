@@ -2,13 +2,17 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(request: NextRequest) {
+  // Permitir acesso público ao login e a páginas não administrativas
   if (!request.nextUrl.pathname.startsWith("/admin") || request.nextUrl.pathname === "/admin/login") {
     return NextResponse.next();
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return NextResponse.redirect(new URL("/admin/login?error=config", request.url));
+
+  if (!url || !key) {
+    return NextResponse.redirect(new URL("/admin/login?error=config", request.url));
+  }
 
   let response = NextResponse.next({ request });
   const supabase = createServerClient(url, key, {
@@ -26,7 +30,9 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return NextResponse.redirect(new URL("/admin/login", request.url));
+  if (!user) {
+    return NextResponse.redirect(new URL("/admin/login", request.url));
+  }
 
   const { data: admin } = await supabase
     .from("admin_users")
@@ -34,8 +40,11 @@ export async function middleware(request: NextRequest) {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (!admin) return NextResponse.redirect(new URL("/admin/login?error=unauthorized", request.url));
+  if (!admin) {
+    return NextResponse.redirect(new URL("/admin/login?error=unauthorized", request.url));
+  }
 
+  // Rotas exclusivas para administrador
   const adminOnly = /^\/admin\/(cardapio|cupons|zonas-de-entrega|configuracoes)(\/|$)/;
   if (admin.papel !== "admin" && adminOnly.test(request.nextUrl.pathname)) {
     return NextResponse.redirect(new URL("/admin", request.url));

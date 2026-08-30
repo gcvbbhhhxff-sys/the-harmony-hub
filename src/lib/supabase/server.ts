@@ -5,15 +5,19 @@ export async function createClient() {
   const cookieStore = cookies();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) throw new Error("Supabase não configurado.");
+
+  if (!url || !key) {
+    throw new Error("Supabase não configurado. Verifique NEXT_PUBLIC_SUPABASE_URL e as chaves de autenticação.");
+  }
+
   return createServerClient(url, key, {
     cookies: {
       getAll: () => cookieStore.getAll(),
       setAll: (items) => {
         try {
           items.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
-        } catch {
-          // Server Components cannot always persist response cookies.
+        } catch (error) {
+          console.error("Erro ao persistir cookies:", error);
         }
       },
     },
