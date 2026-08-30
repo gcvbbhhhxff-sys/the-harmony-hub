@@ -3,6 +3,24 @@ import { OrdersBoard } from "@/components/admin/orders-board";
 
 export const dynamic = "force-dynamic";
 
+type OneOrMany<T> = T | T[] | null;
+
+type OrderRow = {
+  id: string;
+  status: "recebido" | "preparando" | "saiu_para_entrega" | "entregue" | "cancelado";
+  status_pagamento: "pendente" | "confirmado" | "falhou";
+  total: number;
+  criado_em: string;
+  observacoes: string | null;
+  customers: OneOrMany<{ nome: string; telefone: string }>;
+  addresses: OneOrMany<{ rua: string; numero: string; bairro: string; cidade: string; cep: string }>;
+  order_items: {
+    quantidade: number;
+    preco_unitario: number;
+    products: OneOrMany<{ nome: string }>;
+  }[];
+};
+
 export default async function OrdersPage() {
   const supabase = await createClient();
   const { data } = await supabase
@@ -12,27 +30,21 @@ export default async function OrdersPage() {
     )
     .order("criado_em", { ascending: false });
 
-  const rows = (data ?? []) as any[];
+  const rows = (data ?? []) as unknown as OrderRow[];
   const initial = rows.map((o) => {
     const customer = Array.isArray(o.customers) ? o.customers[0] ?? null : o.customers ?? null;
     const address = Array.isArray(o.addresses) ? o.addresses[0] ?? null : o.addresses ?? null;
 
     return {
-      id: o.id as string,
-      status: o.status as "recebido" | "preparando" | "saiu_para_entrega" | "entregue" | "cancelado",
-      status_pagamento: o.status_pagamento as "pendente" | "confirmado" | "falhou",
+      id: o.id,
+      status: o.status,
+      status_pagamento: o.status_pagamento,
       total: Number(o.total),
-      criado_em: o.criado_em as string,
-      observacoes: (o.observacoes as string | null) ?? null,
-      customer: customer as { nome: string; telefone: string } | null,
-      address: address as {
-        rua: string;
-        numero: string;
-        bairro: string;
-        cidade: string;
-        cep: string;
-      } | null,
-      items: ((o.order_items ?? []) as any[]).map((item) => {
+      criado_em: o.criado_em,
+      observacoes: o.observacoes,
+      customer,
+      address,
+      items: (o.order_items ?? []).map((item) => {
         const product = Array.isArray(item.products) ? item.products[0] : item.products;
         return {
           nome: product?.nome ?? "Produto",
