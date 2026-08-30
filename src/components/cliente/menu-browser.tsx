@@ -97,18 +97,18 @@ export function MenuBrowser({ categories, products, settings, optionGroups, opti
   };
 
   return (
-    <main className="min-h-screen pb-24">
+    <main className="min-h-screen bg-[var(--color-background)] pb-24">
       <header className="sticky top-0 z-50 border-b border-black/10 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:h-[72px] sm:px-6">
-          <Link href="/" className="flex min-w-0 items-center gap-3" aria-label={settings.nome}>
-            <Logo size={48} className="shrink-0" />
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:h-[68px] sm:px-6">
+          <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label={settings.nome}>
+            <Logo size={44} className="shrink-0" />
             <div className="min-w-0 leading-tight">
-              <p className="truncate text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--color-muted)]">Restaurante</p>
-              <p className="truncate text-sm font-extrabold sm:text-base">Tabajara’s Churrascaria</p>
+              <p className="truncate text-sm font-black tracking-[-0.01em]">{settings.nome}</p>
+              <p className="truncate text-[10px] font-medium text-[var(--color-muted)]">Delivery oficial</p>
             </div>
           </Link>
           <Link href="/carrinho" aria-label="Abrir carrinho">
-            <Button variant="outline" size="sm" className="gap-2 rounded-full border-black/10 px-3 shadow-sm">
+            <Button variant="outline" size="sm" className="gap-2 rounded-full border-black/10 bg-white px-3 shadow-sm">
               <ShoppingBag className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Meu pedido</span>
               {items.length > 0 && <span className="rounded-full bg-[var(--color-primary)] px-2 py-0.5 text-xs font-black text-black">{items.length}</span>}
@@ -117,22 +117,25 @@ export function MenuBrowser({ categories, products, settings, optionGroups, opti
         </div>
       </header>
 
-      <section className="bg-[var(--color-secondary)] text-white">
-        <div className="mx-auto grid max-w-7xl gap-6 px-4 py-9 sm:px-6 sm:py-12 lg:grid-cols-[1.35fr_.65fr] lg:items-center">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[var(--color-primary)]">Tradição • Brasa • Comida caseira</p>
-            <h1 className="mt-3 max-w-3xl text-3xl font-black leading-[1.05] sm:text-5xl">Sabor de verdade, do jeito que você gosta.</h1>
-            <p className="mt-4 max-w-2xl text-sm leading-6 text-white/70 sm:text-base">Escolha seus pratos, personalize o pedido e acompanhe tudo pelo celular sem complicação.</p>
-            <div className="mt-6 flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold"><span className={`h-2.5 w-2.5 rounded-full ${isCurrentlyOpen ? "bg-emerald-400" : "bg-red-400"}`} />{isCurrentlyOpen ? "Aberto agora" : opening ? `Abre às ${opening}` : "Fechado"}</span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-2 text-xs text-white/70"><Clock3 className="h-4 w-4" aria-hidden="true" />{settings.tempo_estimado || "40–60 min"}</span>
+      <section className="border-b border-black/10 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-6 sm:px-6 sm:py-8">
+          <div className="min-w-0 max-w-3xl">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--color-primary-dark)]">Brasa • comida caseira • delivery</p>
+            <h1 className="mt-2 text-2xl font-black leading-tight tracking-[-0.03em] text-[var(--color-secondary)] sm:text-4xl">Sabor de verdade, do jeito que você gosta.</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-muted)] sm:text-base">Escolha seus pratos, personalize seu pedido e acompanhe tudo pelo celular.</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-[var(--color-background)] px-3 py-2 text-xs font-bold text-[var(--color-text)]"><span className={`h-2.5 w-2.5 rounded-full ${isCurrentlyOpen ? "bg-emerald-500" : "bg-red-500"}`} />{isCurrentlyOpen ? "Aberto agora" : opening ? `Abre às ${opening}` : "Fechado"}</span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[var(--color-muted)]"><Clock3 className="h-4 w-4" aria-hidden="true" />{settings.tempo_estimado || "40–60 min"}</span>
             </div>
           </div>
-          <div className="hidden justify-self-end rounded-3xl border border-white/10 bg-white/[0.04] p-5 lg:block"><Logo size={142} /><p className="mt-3 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-white/50">Tabajara’s Churrascaria</p></div>
+          <div className="hidden shrink-0 items-center gap-3 rounded-2xl border border-black/10 bg-[var(--color-background)] px-4 py-3 lg:flex">
+            <Logo size={58} />
+            <div><p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--color-primary-dark)]">Pedido online</p><p className="mt-1 text-xs text-[var(--color-muted)]">Rápido, simples e direto.</p></div>
+          </div>
         </div>
       </section>
 
-      <section className="sticky top-16 z-40 border-b border-black/10 bg-[var(--color-background)]/95 backdrop-blur sm:top-[72px]">
+      <section className="sticky top-16 z-40 border-b border-black/10 bg-[var(--color-background)]/95 backdrop-blur sm:top-[68px]">
         <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
           <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-muted)]" aria-hidden="true" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar prato, carne, salada..." aria-label="Buscar no cardápio" className="h-11 rounded-xl border-black/10 bg-white pl-10 shadow-sm" /></div>
           <nav className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="Categorias do cardápio">
@@ -141,20 +144,20 @@ export function MenuBrowser({ categories, products, settings, optionGroups, opti
         </div>
       </section>
 
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
+      <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-9">
         {grouped.map(({ category, items: categoryItems }) => (
-          <section key={category.id} id={category.id} className="scroll-mt-36 py-2 sm:py-4">
-            <div className="mb-4 flex items-end justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--color-primary-dark)]">Nossa seleção</p><h2 className="mt-1 text-xl font-black sm:text-2xl">{category.nome}</h2></div><span className="hidden text-xs text-[var(--color-muted)] sm:block">{categoryItems.length} opções</span></div>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          <section key={category.id} id={category.id} className="scroll-mt-32 py-2 sm:py-3">
+            <div className="mb-4 flex items-end justify-between gap-4"><div><p className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--color-primary-dark)]">Nossa seleção</p><h2 className="mt-1 text-xl font-black tracking-[-0.02em] sm:text-2xl">{category.nome}</h2></div><span className="hidden text-xs font-medium text-[var(--color-muted)] sm:block">{categoryItems.length} itens</span></div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {categoryItems.map((product) => (
-                <Card key={product.id} className="group overflow-hidden border-black/5 bg-white p-0 shadow-[0_8px_30px_rgba(17,17,17,.05)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_36px_rgba(17,17,17,.08)]">
-                  <button type="button" className="flex w-full items-stretch text-left md:block" onClick={() => openProduct(product)}>
-                    <div className="relative h-28 w-28 shrink-0 overflow-hidden bg-[var(--color-surface-soft)] md:h-52 md:w-full">
-                      {product.imagem_url ? <Image src={product.imagem_url} alt={product.nome} fill sizes="(max-width: 768px) 112px, (max-width: 1280px) 33vw, 420px" className="object-cover transition duration-300 group-hover:scale-[1.03]" unoptimized /> : <div className="flex h-full items-center justify-center bg-[var(--color-surface-soft)] text-[var(--color-primary-dark)]"><Utensils className="h-8 w-8" aria-hidden="true" /></div>}
+                <Card key={product.id} className="group overflow-hidden border-black/5 bg-white p-0 shadow-[0_8px_30px_rgba(17,17,17,.045)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_38px_rgba(17,17,17,.08)]">
+                  <button type="button" className="flex w-full items-stretch text-left sm:block" onClick={() => openProduct(product)}>
+                    <div className="relative h-28 w-28 shrink-0 overflow-hidden bg-[var(--color-surface-soft)] sm:h-44 sm:w-full">
+                      {product.imagem_url ? <Image src={product.imagem_url} alt={product.nome} fill sizes="(max-width: 640px) 112px, (max-width: 1024px) 50vw, 25vw" className="object-cover transition duration-300 group-hover:scale-[1.025]" unoptimized /> : <div className="flex h-full items-center justify-center bg-[var(--color-surface-soft)] text-[var(--color-primary-dark)]"><Utensils className="h-8 w-8" aria-hidden="true" /></div>}
                     </div>
-                    <div className="flex min-w-0 flex-1 flex-col justify-between p-3 md:p-4"><div><div className="flex items-start justify-between gap-3"><h3 className="text-sm font-extrabold leading-5 sm:text-base">{product.nome}</h3><span className="shrink-0 text-sm font-black text-[var(--color-primary-dark)]">R$ {product.preco.toFixed(2).replace(".", ",")}</span></div>{product.descricao && <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--color-muted)]">{product.descricao}</p>}</div><div className="mt-3 inline-flex items-center justify-between text-xs font-bold"><span>{isCurrentlyOpen ? "Personalizar" : "Ver detalhes"}</span><ChevronRight className="h-4 w-4" aria-hidden="true" /></div></div>
+                    <div className="flex min-w-0 flex-1 flex-col justify-between p-3 sm:p-4"><div><div className="flex items-start justify-between gap-3"><h3 className="text-sm font-extrabold leading-5 sm:text-base">{product.nome}</h3><span className="shrink-0 text-sm font-black text-[var(--color-primary-dark)]">R$ {product.preco.toFixed(2).replace(".", ",")}</span></div>{product.descricao && <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--color-muted)]">{product.descricao}</p>}</div><div className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[var(--color-secondary)]"><span>{isCurrentlyOpen ? "Personalizar" : "Ver detalhes"}</span><ChevronRight className="h-4 w-4" aria-hidden="true" /></div></div>
                   </button>
-                  <div className="hidden px-4 pb-4 md:block"><Button className="w-full rounded-xl" disabled={!isCurrentlyOpen} onClick={() => openProduct(product)}>{isCurrentlyOpen ? "Adicionar ao pedido" : "Restaurante fechado"}</Button></div>
+                  <div className="hidden px-4 pb-4 sm:block"><Button className="w-full rounded-xl" disabled={!isCurrentlyOpen} onClick={() => openProduct(product)}>{isCurrentlyOpen ? "Adicionar ao pedido" : "Restaurante fechado"}</Button></div>
                 </Card>
               ))}
             </div>
@@ -163,7 +166,7 @@ export function MenuBrowser({ categories, products, settings, optionGroups, opti
         {grouped.length === 0 && <div className="rounded-2xl border border-dashed border-black/10 bg-white p-10 text-center"><Search className="mx-auto h-8 w-8 text-[var(--color-muted)]" aria-hidden="true" /><h2 className="mt-3 font-bold">Nada encontrado</h2><p className="mt-1 text-sm text-[var(--color-muted)]">Tente outro termo ou escolha uma categoria.</p></div>}
       </div>
 
-      <footer className="border-t border-black/10 bg-white"><div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-7 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6"><div><p className="font-bold">{settings.nome}</p><p className="mt-1 text-xs text-[var(--color-muted)]">Tradição e qualidade para você e sua família.</p></div><div className="flex items-center gap-4 text-xs text-[var(--color-muted)]">{settings.whatsapp && <a href={`https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="font-semibold text-[var(--color-secondary)]">WhatsApp</a>}<Link href="/politica-de-privacidade">Privacidade</Link></div></div></footer>
+      <footer className="border-t border-black/10 bg-white"><div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-7 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6"><div><p className="font-bold">{settings.nome}</p><p className="mt-1 text-xs text-[var(--color-muted)]">Configure o conteúdo do restaurante pelo painel administrativo.</p></div><div className="flex items-center gap-4 text-xs text-[var(--color-muted)]">{settings.whatsapp && <a href={`https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="font-semibold text-[var(--color-secondary)]">WhatsApp</a>}<Link href="/politica-de-privacidade">Privacidade</Link></div></div></footer>
 
       <div className="fixed inset-x-3 bottom-3 z-50 sm:inset-x-auto sm:right-6 sm:w-auto"><Link href="/carrinho" className="block"><Button size="lg" className="w-full min-w-[min(92vw,22rem)] justify-between rounded-2xl bg-[var(--color-secondary)] px-4 text-white shadow-[0_12px_32px_rgba(0,0,0,.22)] hover:bg-black sm:min-w-[18rem]"><span className="flex items-center gap-2"><ShoppingBag className="h-5 w-5" aria-hidden="true" />{items.length ? `${items.length} ${items.length === 1 ? "item" : "itens"}` : "Seu pedido"}</span><span>R$ {total.toFixed(2).replace(".", ",")}</span></Button></Link></div>
 
