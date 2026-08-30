@@ -1,0 +1,4 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+export const dynamic="force-dynamic";
+export async function GET(request:NextRequest){const orderId=request.nextUrl.searchParams.get("orderId");if(!orderId)return NextResponse.json({ok:false,message:"Pedido inválido."},{status:400});const supabase=await createClient();const {data:{user}}=await supabase.auth.getUser();if(!user)return NextResponse.json({ok:false,message:"Não autenticado."},{status:401});const {data:order}=await supabase.from("orders").select("id,status_pagamento,total").eq("id",orderId).maybeSingle();if(!order)return NextResponse.json({ok:false,message:"Pedido não encontrado."},{status:404});const {data:payment}=await supabase.from("payments").select("status,qr_code,qr_code_base64,mp_payment_id,valor").eq("order_id",orderId).maybeSingle();return NextResponse.json({ok:true,order,payment});}
