@@ -1,0 +1,1 @@
+Server Actions serão organizadas por domínio nas próximas etapas. Nenhuma lógica de negócio pertence aqui até a etapa correspondente da especificação.
