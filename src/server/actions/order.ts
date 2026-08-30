@@ -1,288 +1,38 @@
 "use server";
-
 import { createClient } from "@/lib/supabase/server";
-
-export type DraftOrderItem = {
-  productId: string;
-  quantity: number;
-  optionIds: string[];
-  addonIds: string[];
-  observation: string;
-};
-
-export type AddressInput = {
-  rotulo?: string;
-  rua: string;
-  numero: string;
-  complemento?: string;
-  bairro: string;
-  cidade: string;
-  cep: string;
-  referencia?: string;
-};
-
-export type CreateOrderInput = {
-  items: DraftOrderItem[];
-  customer: { nome: string; email: string };
-  addressId?: string;
-  address?: AddressInput;
-  formaPagamento: "pix" | "cartao" | "na_entrega";
-  observacoes?: string;
-  couponCode?: string;
-};
-
-export async function createOrder(input: CreateOrderInput) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return { ok: false, message: "Sua sessão expirou. Entre novamente." };
-  if (!input.items.length) return { ok: false, message: "O carrinho está vazio." };
-
-  const phone = String(user.phone || "");
-  let { data: customer } = await supabase
-    .from("customers")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!customer) {
-    const created = await supabase
-      .from("customers")
-      .insert({
-        user_id: user.id,
-        nome: input.customer.nome.trim(),
-        telefone: phone,
-        email: input.customer.email.trim(),
-      })
-      .select("id")
-      .single();
-    if (created.error || !created.data) {
-      return { ok: false, message: "Não foi possível criar seu cadastro." };
-    }
-    customer = created.data;
-  } else {
-    const { error } = await supabase
-      .from("customers")
-      .update({
-        nome: input.customer.nome.trim(),
-        email: input.customer.email.trim(),
-        telefone: phone,
-      })
-      .eq("id", customer.id);
-    if (error) return { ok: false, message: "Não foi possível atualizar seu cadastro." };
-  }
-
-  const { data: settings } = await supabase
-    .from("restaurant_settings")
-    .select("valor_minimo_pedido")
-    .limit(1)
-    .maybeSingle();
-  const minimum = Number(settings?.valor_minimo_pedido ?? 0);
-
-  let addressId: string;
-  let addressData: AddressInput;
-  if (input.addressId) {
-    const { data: address } = await supabase
-      .from("addresses")
-      .select("id,rua,numero,complemento,bairro,cidade,cep,referencia,rotulo")
-      .eq("id", input.addressId)
-      .eq("customer_id", customer.id)
-      .maybeSingle();
-    if (!address) return { ok: false, message: "Endereço inválido." };
-    addressId = address.id;
-    addressData = address;
-  } else if (input.address) {
-    const created = await supabase
-      .from("addresses")
-      .insert({ customer_id: customer.id, ...input.address, padrao: false })
-      .select("id,rua,numero,complemento,bairro,cidade,cep,referencia,rotulo")
-      .single();
-    if (created.error || !created.data) {
-      return { ok: false, message: "Não foi possível salvar o endereço." };
-    }
-    addressId = created.data.id;
-    addressData = created.data;
-  } else {
-    return { ok: false, message: "Informe um endereço." };
-  }
-
-  let subtotal = 0;
-  const validated: {
-    productId: string;
-    quantity: number;
-    unitPrice: number;
-    options: unknown[];
-    addons: unknown[];
-    observation: string;
-  }[] = [];
-
-  for (const item of input.items) {
-    if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 99) {
-      return { ok: false, message: "Quantidade inválida." };
-    }
-
-    const { data: product } = await supabase
-      .from("products")
-      .select("id,preco,ativo")
-      .eq("id", item.productId)
-      .eq("ativo", true)
-      .maybeSingle();
-    if (!product) return { ok: false, message: "Um produto não está mais disponível." };
-
-    const { data: opts } = item.optionIds.length
-      ? await supabase
-          .from("options")
-          .select("id,nome,preco_extra,group_id,option_groups!inner(product_id)")
-          .in("id", item.optionIds)
-      : { data: [] as any[] };
-
-    const invalidOption = (opts ?? []).some((o: any) => {
-      const group = Array.isArray(o.option_groups) ? o.option_groups[0] : o.option_groups;
-      return !group || group.product_id !== product.id;
-    });
-    if (invalidOption) return { ok: false, message: "Opção inválida." };
-
-    const { data: groups } = await supabase
-      .from("option_groups")
-      .select("id,min_select,max_select")
-      .eq("product_id", product.id);
-    for (const group of groups ?? []) {
-      const count = (opts ?? []).filter((o: any) => o.group_id === group.id).length;
-      if (count < group.min_select || count > group.max_select) {
-        return { ok: false, message: "Seleção de opções inválida." };
-      }
-    }
-
-    const { data: addons } = item.addonIds.length
-      ? await supabase
-          .from("addons")
-          .select("id,nome,preco,ativo")
-          .in("id", item.addonIds)
-          .eq("ativo", true)
-      : { data: [] as any[] };
-    if ((addons ?? []).length !== item.addonIds.length) {
-      return { ok: false, message: "Adicional inválido." };
-    }
-
-    if (item.addonIds.length) {
-      const { data: links } = await supabase
-        .from("product_addons")
-        .select("addon_id")
-        .eq("product_id", product.id)
-        .in("addon_id", item.addonIds);
-      if ((links ?? []).length !== item.addonIds.length) {
-        return { ok: false, message: "Um adicional não se aplica a este produto." };
-      }
-    }
-
-    const unitPrice =
-      Number(product.preco) +
-      (opts ?? []).reduce((sum: number, option: any) => sum + Number(option.preco_extra), 0) +
-      (addons ?? []).reduce((sum: number, addon: any) => sum + Number(addon.preco), 0);
-    subtotal += unitPrice * item.quantity;
-    validated.push({
-      productId: item.productId,
-      quantity: item.quantity,
-      unitPrice,
-      options: opts ?? [],
-      addons: addons ?? [],
-      observation: item.observation || "",
-    });
-  }
-
-  if (subtotal < minimum) {
-    if (!input.addressId) await supabase.from("addresses").delete().eq("id", addressId);
-    return { ok: false, message: `O pedido mínimo é R$ ${minimum.toFixed(2).replace(".", ",")}.` };
-  }
-
-  let desconto = 0;
-  let couponId: string | null = null;
-  if (input.couponCode) {
-    const { data } = await supabase.rpc("validar_cupom", {
-      codigo: input.couponCode,
-      valor_pedido: subtotal,
-    });
-    const row = data?.[0];
-    if (!row?.valido) {
-      if (!input.addressId) await supabase.from("addresses").delete().eq("id", addressId);
-      return { ok: false, message: "Cupom inválido ou indisponível." };
-    }
-    desconto = Number(row.desconto);
-    const { data: coupon } = await supabase
-      .from("coupons")
-      .select("id")
-      .ilike("codigo", input.couponCode)
-      .maybeSingle();
-    couponId = coupon?.id ?? null;
-  }
-
-  const { data: zone } = await supabase
-    .from("delivery_zones")
-    .select("taxa")
-    .eq("ativo", true)
-    .ilike("nome", addressData.bairro)
-    .maybeSingle();
-  if (!zone) {
-    if (!input.addressId) await supabase.from("addresses").delete().eq("id", addressId);
-    return { ok: false, message: "Fora da área de entrega no momento." };
-  }
-
-  const taxaEntrega = Number(zone.taxa);
-  const total = Math.max(0, subtotal + taxaEntrega - desconto);
-  const { data: order, error } = await supabase
-    .from("orders")
-    .insert({
-      customer_id: customer.id,
-      address_id: addressId,
-      subtotal,
-      taxa_entrega: taxaEntrega,
-      desconto,
-      total,
-      forma_pagamento: input.formaPagamento,
-      status_pagamento: input.formaPagamento === "na_entrega" ? "confirmado" : "pendente",
-      coupon_id: couponId,
-      observacoes: input.observacoes || null,
-    })
-    .select("id")
-    .single();
-
-  if (error || !order) {
-    if (!input.addressId) await supabase.from("addresses").delete().eq("id", addressId);
-    return { ok: false, message: "Não foi possível criar o pedido." };
-  }
-
-  const rows = validated.map((item) => ({
-    order_id: order.id,
-    product_id: item.productId,
-    quantidade: item.quantity,
-    preco_unitario: item.unitPrice,
-    opcoes_selecionadas: item.options,
-    adicionais_selecionados: item.addons,
-    observacao_item: item.observation,
-  }));
-  const { error: itemError } = await supabase.from("order_items").insert(rows);
-  if (itemError) {
-    await supabase.from("orders").delete().eq("id", order.id);
-    return { ok: false, message: "Não foi possível gravar os itens do pedido." };
-  }
-
-  await supabase.from("order_status_history").insert({
-    order_id: order.id,
-    status: "recebido",
-  });
-
-  if (input.couponCode) {
-    const consumed = await supabase.rpc("consumir_cupom", {
-      codigo: input.couponCode,
-      valor_pedido: subtotal,
-    });
-    if (consumed.data !== true) {
-      await supabase.from("orders").delete().eq("id", order.id);
-      return { ok: false, message: "O cupom não pôde ser confirmado." };
-    }
-  }
-
-  return { ok: true, orderId: order.id, total };
+export type DraftOrderItem={productId:string;quantity:number;optionIds:string[];addonIds:string[];observation:string};
+export type AddressInput={rotulo?:string;rua:string;numero:string;complemento?:string;bairro:string;cidade:string;cep:string;referencia?:string};
+export type CreateOrderInput={items:DraftOrderItem[];customer:{nome:string;email:string};addressId?:string;address?:AddressInput;formaPagamento:"pix"|"cartao"|"na_entrega";observacoes?:string;couponCode?:string;consentAccepted?:boolean};
+type OptionRow={id:string;nome:string;preco_extra:number;group_id:string;option_groups:{product_id:string}|{product_id:string}[]|null};
+type AddonRow={id:string;nome:string;preco:number;ativo:boolean};
+const cleanup=async(db:Awaited<ReturnType<typeof createClient>>,addressId:string,created:boolean)=>{if(created)await db.from("addresses").delete().eq("id",addressId)};
+export async function createOrder(input:CreateOrderInput){
+ const db=await createClient(); const {data:{user}}=await db.auth.getUser();
+ if(!user)return{ok:false,message:"Sua sessão expirou. Entre novamente."}; if(!input.items.length)return{ok:false,message:"O carrinho está vazio."}; if(input.consentAccepted!==true)return{ok:false,message:"O consentimento é obrigatório."};
+ const {data:existing}=await db.from("customers").select("id").eq("user_id",user.id).maybeSingle(); let customerId=existing?.id;
+ const phone=String(user.phone||"");
+ if(!customerId){const created=await db.from("customers").insert({user_id:user.id,nome:input.customer.nome.trim(),telefone:phone,email:input.customer.email.trim()}).select("id").single();if(created.error||!created.data)return{ok:false,message:"Não foi possível criar seu cadastro."};customerId=created.data.id}
+ else{const{error}=await db.from("customers").update({nome:input.customer.nome.trim(),email:input.customer.email.trim(),telefone:phone}).eq("id",customerId);if(error)return{ok:false,message:"Não foi possível atualizar seu cadastro."}}
+ const{data:settings}=await db.from("restaurant_settings").select("valor_minimo_pedido").limit(1).maybeSingle();const minimum=Number(settings?.valor_minimo_pedido??0);
+ let addressId:string;let addressData:AddressInput;let createdAddress=false;
+ if(input.addressId){const{data}=await db.from("addresses").select("id,rua,numero,complemento,bairro,cidade,cep,referencia,rotulo").eq("id",input.addressId).eq("customer_id",customerId).maybeSingle();if(!data)return{ok:false,message:"Endereço inválido."};addressId=data.id;addressData=data}
+ else if(input.address){const{data,error}=await db.from("addresses").insert({customer_id:customerId,...input.address,padrao:false}).select("id,rua,numero,complemento,bairro,cidade,cep,referencia,rotulo").single();if(error||!data)return{ok:false,message:"Não foi possível salvar o endereço."};addressId=data.id;addressData=data;createdAddress=true}
+ else return{ok:false,message:"Informe um endereço."};
+ let subtotal=0;const validated:{productId:string;quantity:number;unitPrice:number;options:OptionRow[];addons:AddonRow[];observation:string}[]=[];
+ for(const item of input.items){if(!Number.isInteger(item.quantity)||item.quantity<1||item.quantity>99){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Quantidade inválida."}}
+  const{data:product}=await db.from("products").select("id,preco,ativo").eq("id",item.productId).eq("ativo",true).maybeSingle();if(!product){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Um produto não está mais disponível."}}
+  const optionResult=item.optionIds.length?await db.from("options").select("id,nome,preco_extra,group_id,option_groups!inner(product_id)").in("id",item.optionIds):{data:[] as OptionRow[],error:null};const opts=(optionResult.data??[]) as OptionRow[];
+  if(optionResult.error||opts.length!==item.optionIds.length||opts.some(o=>{const g=Array.isArray(o.option_groups)?o.option_groups[0]:o.option_groups;return !g||g.product_id!==product.id})){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Opção inválida."}}
+  const{data:groups}=await db.from("option_groups").select("id,min_select,max_select").eq("product_id",product.id);for(const g of groups??[]){const count=opts.filter(o=>o.group_id===g.id).length;if(count<g.min_select||count>g.max_select){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Seleção de opções inválida."}}}
+  const addonResult=item.addonIds.length?await db.from("addons").select("id,nome,preco,ativo").in("id",item.addonIds).eq("ativo",true):{data:[] as AddonRow[],error:null};const adds=(addonResult.data??[]) as AddonRow[];if(addonResult.error||adds.length!==item.addonIds.length){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Adicional inválido."}}
+  if(item.addonIds.length){const{data:links}=await db.from("product_addons").select("addon_id").eq("product_id",product.id).in("addon_id",item.addonIds);if((links??[]).length!==item.addonIds.length){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Um adicional não se aplica a este produto."}}}
+  const unitPrice=Number(product.preco)+opts.reduce((s,o)=>s+Number(o.preco_extra),0)+adds.reduce((s,a)=>s+Number(a.preco),0);subtotal+=unitPrice*item.quantity;validated.push({productId:item.productId,quantity:item.quantity,unitPrice,options:opts,addons:adds,observation:item.observation||""})}
+ if(subtotal<minimum){await cleanup(db,addressId,createdAddress);return{ok:false,message:`O pedido mínimo é R$ ${minimum.toFixed(2).replace(".",",")}.`}}
+ let desconto=0;let couponId:string|null=null;if(input.couponCode){const{data}=await db.rpc("validar_cupom",{codigo:input.couponCode,valor_pedido:subtotal});const row=data?.[0];if(!row?.valido){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Cupom inválido ou indisponível."}}desconto=Number(row.desconto);const{data:coupon}=await db.from("coupons").select("id").ilike("codigo",input.couponCode).maybeSingle();couponId=coupon?.id??null}
+ const{data:zone}=await db.from("delivery_zones").select("taxa").eq("ativo",true).ilike("nome",addressData.bairro).maybeSingle();if(!zone){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Fora da área de entrega no momento."}}
+ const total=Math.max(0,subtotal+Number(zone.taxa)-desconto);const{data:order,error}=await db.from("orders").insert({customer_id:customerId,address_id:addressId,subtotal,taxa_entrega:Number(zone.taxa),desconto,total,forma_pagamento:input.formaPagamento,status_pagamento:input.formaPagamento==="na_entrega"?"confirmado":"pendente",coupon_id:couponId,observacoes:input.observacoes||null}).select("id").single();if(error||!order){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Não foi possível criar o pedido."}}
+ const{error:itemError}=await db.from("order_items").insert(validated.map(i=>({order_id:order.id,product_id:i.productId,quantidade:i.quantity,preco_unitario:i.unitPrice,opcoes_selecionadas:i.options,adicionais_selecionados:i.addons,observacao_item:i.observation})));if(itemError){await db.from("orders").delete().eq("id",order.id);await cleanup(db,addressId,createdAddress);return{ok:false,message:"Não foi possível gravar os itens do pedido."}}
+ const{error:historyError}=await db.from("order_status_history").insert({order_id:order.id,status:"recebido"});if(historyError){await db.from("orders").delete().eq("id",order.id);await cleanup(db,addressId,createdAddress);return{ok:false,message:"Não foi possível registrar o histórico do pedido."}}
+ if(input.couponCode){const{data:consumed}=await db.rpc("consumir_cupom",{codigo:input.couponCode,valor_pedido:subtotal});if(consumed!==true){await db.from("orders").delete().eq("id",order.id);await cleanup(db,addressId,createdAddress);return{ok:false,message:"O cupom não pôde ser confirmado."}}}
+ return{ok:true,orderId:order.id,total};
 }
