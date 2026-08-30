@@ -6,12 +6,12 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://illustrious-begonia
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Tabajara's Churrascaria — Delivery",
-    template: "%s | Tabajara's Churrascaria",
+    default: "Seu Restaurante — Delivery",
+    template: "%s | Seu Restaurante",
   },
   description:
-    "Peça online da Tabajara's Churrascaria: churrasco de gado, porco, frango e toscana, arrozes, feijões, saladas e acompanhamentos, com entrega rápida.",
-  applicationName: "Tabajara's Churrascaria",
+    "Peça online do seu restaurante com entrega rápida e segura. Cardápio completo, preços atualizados e acompanhamento de pedidos em tempo real.",
+  applicationName: "Seu Restaurante",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
@@ -21,16 +21,16 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "pt_BR",
-    siteName: "Tabajara's Churrascaria",
-    title: "Tabajara's Churrascaria — Delivery",
+    siteName: "Seu Restaurante",
+    title: "Seu Restaurante — Delivery",
     description:
-      "Churrasco de gado, porco, frango e toscana, arrozes, feijões, saladas e acompanhamentos. Peça pelo delivery.",
-    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Tabajara's Churrascaria" }],
+      "Peça online com entrega rápida e segura. Cardápio completo e acompanhamento de pedidos em tempo real.",
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Seu Restaurante" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Tabajara's Churrascaria — Delivery",
-    description: "Churrasco, arrozes, feijões e saladas com entrega rápida.",
+    title: "Seu Restaurante — Delivery",
+    description: "Peça online com entrega rápida e segura.",
     images: ["/og-image.jpg"],
   },
   robots: { index: true, follow: true },
@@ -45,8 +45,8 @@ export const viewport: Viewport = {
 const restaurantJsonLd = {
   "@context": "https://schema.org",
   "@type": "Restaurant",
-  name: "Tabajara's Churrascaria",
-  servesCuisine: ["Churrascaria", "Comida brasileira"],
+  name: "Seu Restaurante",
+  servesCuisine: ["Comida brasileira"],
   priceRange: "$$",
   acceptsReservations: "False",
   url: siteUrl,
