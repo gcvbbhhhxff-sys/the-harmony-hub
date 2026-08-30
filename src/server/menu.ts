@@ -68,7 +68,7 @@ export async function getPublicMenu() {
     const [{ data: categories }, { data: products }, { data: settings }, { data: optionGroups }, { data: options }, { data: addons }, { data: productAddons }] = await Promise.all([
       supabase.from("categories").select("id,nome,ordem,ativo").eq("ativo", true).order("ordem"),
       supabase.from("products").select("id,category_id,nome,descricao,preco,imagem_url,ativo,destaque").eq("ativo", true).order("nome"),
-      supabase.from("restaurant_settings").select("nome,logo_url,valor_minimo_pedido,whatsapp,tempo_estimado,horario_funcionamento").eq("is_demo", true).limit(1).maybeSingle(),
+      supabase.from("restaurant_settings").select("nome,logo_url,valor_minimo_pedido,whatsapp,tempo_estimado,horario_funcionamento").limit(1).maybeSingle(),
       supabase.from("option_groups").select("id,product_id,nome,min_select,max_select,obrigatorio,ordem").order("ordem"),
       supabase.from("options").select("id,group_id,nome,preco_extra,ordem,ativo").eq("ativo", true).order("ordem"),
       supabase.from("addons").select("id,nome,preco,ativo").eq("ativo", true).order("nome"),
