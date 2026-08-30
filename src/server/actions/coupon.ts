@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function validateCoupon(codigo: string, valorPedido: number) {
   const code = codigo.trim();
@@ -9,7 +10,11 @@ export async function validateCoupon(codigo: string, valorPedido: number) {
     return { valid: false, message: "Valor do pedido inválido." };
   }
 
-  const supabase = await createClient();
+  const sessionClient = await createClient();
+  const { data: { user } } = await sessionClient.auth.getUser();
+  if (!user) return { valid: false, message: "Entre na sua conta para validar o cupom." };
+
+  const supabase = createAdminClient();
   const { data, error } = await supabase.rpc("validar_cupom", {
     codigo: code,
     valor_pedido: valorPedido,
