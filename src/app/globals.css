@@ -3,21 +3,45 @@
 @tailwind utilities;
 
 :root {
-  --color-primary:#C9972A;
-  --color-primary-dark:#A67818;
-  --color-secondary:#0D0D0D;
-  --color-background:#FBF8F2;
-  --color-surface:#FFFFFF;
-  --color-accent-warm:#E0562B;
-  --color-accent-cool:#2E7DC0;
-  --color-text:#1A1A1A;
-  --color-success:#2F7A4D;
-  --color-danger:#B3261E;
-  --font-body:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  --font-heading:Poppins,Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --color-primary: #d3a328;
+  --color-primary-dark: #aa7f18;
+  --color-secondary: #121212;
+  --color-background: #f7f5f1;
+  --color-surface: #ffffff;
+  --color-surface-soft: #f1eee7;
+  --color-border: #e7e2d8;
+  --color-text: #171717;
+  --color-muted: #6f6a62;
+  --color-success: #2f7a4d;
+  --color-danger: #b3261e;
+  --font-body: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-heading: Poppins, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
-*{box-sizing:border-box}
-html,body{margin:0;min-height:100%}
-body{background:var(--color-background);color:var(--color-text);font-family:var(--font-body)}
-h1,h2,h3,h4{font-family:var(--font-heading)}
-a{color:inherit}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; background: var(--color-background); }
+html, body { margin: 0; min-height: 100%; }
+body {
+  background:
+    radial-gradient(circle at top left, rgba(211,163,40,.08), transparent 28rem),
+    var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+h1, h2, h3, h4 { font-family: var(--font-heading); }
+a { color: inherit; }
+button, input, textarea, select { font: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+
+::selection { background: rgba(211,163,40,.25); }
+
+@layer utilities {
+  .safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+  .safe-top { padding-top: max(1rem, env(safe-area-inset-top)); }
+}
+
+@media (max-width: 640px) {
+  body { overflow-x: hidden; }
+}
