@@ -1,1 +1,43 @@
-import Link from "next/link";import { requireAdmin } from "@/server/admin";import { Logo } from "@/components/ui/logo";export const dynamic="force-dynamic";export default async function AdminLayout({children}:{children:React.ReactNode}){const auth=await requireAdmin();if(!auth)return children;const admin=auth.admin;return <div className="min-h-screen bg-[var(--color-background)] md:flex"><aside className="w-full border-b bg-[var(--color-secondary)] p-4 text-white md:min-h-screen md:w-64 md:border-b-0 md:border-r"><div className="flex items-center gap-3"><Logo size={44}/><div><p className="text-xs uppercase tracking-wide text-[var(--color-primary)]">Tabajara's</p><p className="font-extrabold">Admin</p></div></div><nav className="mt-6 grid gap-1 text-sm"><Link className="rounded-md px-3 py-2 hover:bg-white/10" href="/admin">Dashboard</Link><Link className="rounded-md px-3 py-2 hover:bg-white/10" href="/admin/pedidos">Pedidos</Link>{admin.papel==="admin"&&<><Link className="rounded-md px-3 py-2 hover:bg-white/10" href="/admin/cardapio">Cardápio</Link><Link className="rounded-md px-3 py-2 hover:bg-white/10" href="/admin/cupons">Cupons</Link><Link className="rounded-md px-3 py-2 hover:bg-white/10" href="/admin/zonas-de-entrega">Zonas de Entrega</Link><Link className="rounded-md px-3 py-2 hover:bg-white/10" href="/admin/configuracoes">Configurações</Link></>}</nav></aside><section className="min-w-0 flex-1"><header className="border-b bg-white px-4 py-4 md:px-6"><p className="text-sm font-semibold">{admin.nome} · {admin.papel}</p></header>{children}</section></div>}
+import Link from "next/link";
+import { requireAdmin } from "@/server/admin";
+import { Logo } from "@/components/ui/logo";
+
+export const dynamic = "force-dynamic";
+
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const auth = await requireAdmin();
+  if (!auth) return children;
+  const admin = auth.admin;
+
+  return (
+    <div className="min-h-screen bg-[var(--color-background)] md:flex">
+      <aside className="w-full border-b bg-[var(--color-secondary)] p-4 text-white md:min-h-screen md:w-64 md:border-b-0 md:border-r">
+        <div className="flex items-center gap-3">
+          <Logo size={44} />
+          <div>
+            <p className="text-xs uppercase tracking-wide text-[var(--color-primary)]">Tabajara&apos;s</p>
+            <p className="font-extrabold">Admin</p>
+          </div>
+        </div>
+        <nav className="mt-6 grid gap-1 text-sm">
+          <Link className="rounded-md px-3 py-2 hover:bg-white/10" href="/admin">Dashboard</Link>
+          <Link className="rounded-md px-3 py-2 hover:bg-white/10" href="/admin/pedidos">Pedidos</Link>
+          {admin.papel === "admin" && (
+            <>
+              <Link className="rounded-md px-3 py-2 hover:bg-white/10" href="/admin/cardapio">Cardápio</Link>
+              <Link className="rounded-md px-3 py-2 hover:bg-white/10" href="/admin/cupons">Cupons</Link>
+              <Link className="rounded-md px-3 py-2 hover:bg-white/10" href="/admin/zonas-de-entrega">Zonas de Entrega</Link>
+              <Link className="rounded-md px-3 py-2 hover:bg-white/10" href="/admin/configuracoes">Configurações</Link>
+            </>
+          )}
+        </nav>
+      </aside>
+      <section className="min-w-0 flex-1">
+        <header className="border-b bg-white px-4 py-4 md:px-6">
+          <p className="text-sm font-semibold">{admin.nome} · {admin.papel}</p>
+        </header>
+        {children}
+      </section>
+    </div>
+  );
+}
