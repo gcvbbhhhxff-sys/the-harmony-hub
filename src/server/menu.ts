@@ -65,7 +65,7 @@ function normalizeSettings(value: unknown): RestaurantSettings | null {
 export async function getPublicMenu() {
   try {
     const supabase = await createClient();
-    const [{ data: categories }, { data: products }, { data: settings }, { data: optionGroups }, { data: options }, { data: addons }, { data: productAddons }] = await Promise.all([
+    const [{ data: categories, error: categoriesError }, { data: products, error: productsError }, { data: settings, error: settingsError }, { data: optionGroups, error: groupsError }, { data: options, error: optionsError }, { data: addons, error: addonsError }, { data: productAddons, error: linksError }] = await Promise.all([
       supabase.from("categories").select("id,nome,ordem,ativo").eq("ativo", true).order("ordem"),
       supabase.from("products").select("id,category_id,nome,descricao,preco,imagem_url,ativo,destaque").eq("ativo", true).order("nome"),
       supabase.from("restaurant_settings").select("nome,logo_url,valor_minimo_pedido,whatsapp,tempo_estimado,horario_funcionamento").limit(1).maybeSingle(),
@@ -74,6 +74,9 @@ export async function getPublicMenu() {
       supabase.from("addons").select("id,nome,preco,ativo").eq("ativo", true).order("nome"),
       supabase.from("product_addons").select("product_id,addon_id"),
     ]);
+
+    const error = categoriesError ?? productsError ?? settingsError ?? groupsError ?? optionsError ?? addonsError ?? linksError;
+    if (error) throw error;
 
     return {
       categories: (categories as Category[] | null) ?? [],
@@ -84,7 +87,9 @@ export async function getPublicMenu() {
       addons: (addons as MenuAddon[] | null) ?? [],
       productAddons: (productAddons as { product_id: string; addon_id: string }[] | null) ?? [],
     };
-  } catch {
+  } catch (error) {
+    console.error("[getPublicMenu] Falha ao carregar o cardápio", error);
+    if (process.env.NODE_ENV === "production") throw error;
     return {
       categories: demoCategories,
       products: demoProducts,
