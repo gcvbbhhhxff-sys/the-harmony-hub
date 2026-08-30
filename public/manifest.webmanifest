@@ -1,0 +1,12 @@
+{
+  "name": "Tabajara's Churrascaria",
+  "short_name": "Tabajara's",
+  "description": "Delivery da Tabajara's Churrascaria — churrasco, arrozes, feijões e saladas.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FBF8F2",
+  "theme_color": "#0D0D0D",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
