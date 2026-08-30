@@ -94,14 +94,18 @@ export default function CartPageClient({
                       size="sm"
                       variant="outline"
                       onClick={() => setQuantity(item.id, item.quantity - 1)}
+                      aria-label={`Diminuir quantidade de ${item.product.nome}`}
                     >
                       <Minus className="h-4 w-4" />
                     </Button>
-                    <span className="min-w-6 text-center">{item.quantity}</span>
+                    <span className="min-w-6 text-center" aria-live="polite">
+                      {item.quantity}
+                    </span>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => setQuantity(item.id, item.quantity + 1)}
+                      aria-label={`Aumentar quantidade de ${item.product.nome}`}
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
