@@ -1,0 +1,1 @@
+API Route Handlers serão adicionados somente nas etapas em que fizerem parte do fluxo do domínio correspondente.
