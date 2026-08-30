@@ -1,0 +1,1 @@
+Rotas administrativas serão construídas na etapa correspondente, com autenticação e autorização no servidor.
