@@ -1,0 +1,3 @@
+import { cn } from "@/lib/utils/cn";
+type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & { status?: "recebido" | "preparando" | "saiu" | "entregue" | "cancelado" };
+export function Badge({ status, className, children, ...props }: BadgeProps) { const styles={recebido:"bg-blue-100 text-blue-800",preparando:"bg-amber-100 text-amber-800",saiu:"bg-indigo-100 text-indigo-800",entregue:"bg-green-100 text-green-800",cancelado:"bg-red-100 text-red-800"}; return <span className={cn("inline-flex rounded-full px-2.5 py-1 text-xs font-semibold", status ? styles[status] : "bg-black/5", className)} {...props}>{children}</span>; }
