@@ -1,4 +1,190 @@
 "use client";
-import { useState,useTransition } from "react";import Link from "next/link";import { ArrowLeft,Minus,Plus,Trash2 } from "lucide-react";import { Button } from "@/components/ui/button";import { Card } from "@/components/ui/card";import { Input } from "@/components/ui/input";import { ProductDetail } from "@/components/cliente/product-detail";import { validateCoupon } from "@/server/actions/coupon";import { cartTotal,useCartStore } from "@/lib/cart/store";import type { MenuAddon,MenuOption,MenuOptionGroup } from "@/types/cart";import type { RestaurantSettings } from "@/types/menu";
-type Props={optionGroups:MenuOptionGroup[];options:MenuOption[];addons:MenuAddon[];productAddons:{product_id:string;addon_id:string}[];minimumOrder:number;settings:RestaurantSettings};
-export default function CartPageClient({optionGroups,options,addons,productAddons,minimumOrder}:Props){const items=useCartStore(s=>s.items);const setQuantity=useCartStore(s=>s.setQuantity);const remove=useCartStore(s=>s.removeItem);const [editing,setEditing]=useState<string|null>(null);const [coupon,setCoupon]=useState("");const [discount,setDiscount]=useState(0);const [couponMessage,setCouponMessage]=useState("");const [pending,startTransition]=useTransition();const total=cartTotal(items);const editingItem=items.find(i=>i.id===editing);const applyCoupon=()=>startTransition(async()=>{const r=await validateCoupon(coupon,total);if(!r.valid){setDiscount(0);setCouponMessage(r.message||"Cupom inválido.")}else{setDiscount(r.desconto??0);setCouponMessage(`Desconto aplicado: R$ ${(r.desconto??0).toFixed(2).replace(".",",")}`)}});return <main className="mx-auto max-w-3xl px-4 py-6 md:px-6"><Link href="/" className="inline-flex items-center gap-2 text-sm opacity-70"><ArrowLeft className="h-4 w-4"/>Voltar ao cardápio</Link><h1 className="mt-6 text-3xl font-extrabold">Seu carrinho</h1>{items.length===0?<div className="py-16 text-center"><p className="opacity-70">Seu carrinho está vazio.</p><Link href="/" className="mt-5 inline-flex min-h-10 items-center justify-center rounded-md bg-[var(--color-primary)] px-4 font-medium text-white">Ver cardápio</Link></div>:<div className="mt-6 grid gap-4">{items.map(item=><Card key={item.id}><div className="flex gap-4"><div className="min-w-0 flex-1"><h2 className="font-bold">{item.product.nome}</h2><p className="mt-1 text-sm opacity-65">R$ {item.unitPrice.toFixed(2).replace(".",",")} cada</p>{item.options.length>0&&<p className="mt-2 text-xs opacity-65">{item.options.map(o=>o.nome).join(", ")}</p>}{item.addons.length>0&&<p className="text-xs opacity-65">+ {item.addons.map(a=>a.nome).join(", ")}</p>}<div className="mt-4 flex items-center gap-2"><Button size="sm" variant="outline" onClick={()=>setQuantity(item.id,item.quantity-1)}><Minus className="h-4 w-4"/></Button><span className="min-w-6 text-center">{item.quantity}</span><Button size="sm" variant="outline" onClick={()=>setQuantity(item.id,item.quantity+1)}><Plus className="h-4 w-4"/></Button><Button size="sm" variant="outline" onClick={()=>setEditing(item.id)}>Editar</Button><Button size="sm" variant="ghost" className="ml-auto" onClick={()=>remove(item.id)} aria-label="Remover item"><Trash2 className="h-4 w-4"/></Button></div></div><strong className="text-[var(--color-primary)]">R$ {(item.unitPrice*item.quantity).toFixed(2).replace(".",",")}</strong></div></Card>)}<Card><h2 className="font-bold">Cupom</h2><div className="mt-3 flex gap-2"><Input value={coupon} onChange={e=>setCoupon(e.target.value.toUpperCase())} placeholder="Código"/><Button variant="outline" disabled={pending} onClick={applyCoupon}>Aplicar</Button></div>{couponMessage&&<p className="mt-2 text-sm">{couponMessage}</p>}</Card><Card><div className="flex items-center justify-between"><span>Subtotal</span><span className="font-bold">R$ {total.toFixed(2).replace(".",",")}</span></div>{discount>0&&<div className="mt-2 flex items-center justify-between text-sm"><span>Desconto</span><span>- R$ {discount.toFixed(2).replace(".",",")}</span></div>}{minimumOrder>0&&total<minimumOrder&&<p className="mt-3 text-sm text-[var(--color-danger)]">Pedido mínimo: R$ {minimumOrder.toFixed(2).replace(".",",")}</p>}<Button size="lg" className="mt-4 w-full" disabled={minimumOrder>0&&total<minimumOrder} asChild={false} onClick={()=>{window.location.href="/checkout"}}>Continuar</Button></Card></div>}{editingItem&&<ProductDetail product={editingItem.product} groups={optionGroups.filter(g=>g.product_id===editingItem.product.id)} options={options} addons={addons} availableAddonIds={productAddons.filter(x=>x.product_id===editingItem.product.id).map(x=>x.addon_id)} existingItem={editingItem} open={Boolean(editing)} onClose={()=>setEditing(null)}/>}</main>}
+
+import { useState, useTransition } from "react";
+import Link from "next/link";
+import { ArrowLeft, Minus, Plus, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ProductDetail } from "@/components/cliente/product-detail";
+import { validateCoupon } from "@/server/actions/coupon";
+import { cartTotal, useCartStore } from "@/lib/cart/store";
+import type { MenuAddon, MenuOption, MenuOptionGroup } from "@/types/cart";
+
+type Props = {
+  optionGroups: MenuOptionGroup[];
+  options: MenuOption[];
+  addons: MenuAddon[];
+  productAddons: { product_id: string; addon_id: string }[];
+  minimumOrder: number;
+};
+
+export default function CartPageClient({
+  optionGroups,
+  options,
+  addons,
+  productAddons,
+  minimumOrder,
+}: Props) {
+  const items = useCartStore((s) => s.items);
+  const setQuantity = useCartStore((s) => s.setQuantity);
+  const remove = useCartStore((s) => s.removeItem);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [coupon, setCoupon] = useState("");
+  const [discount, setDiscount] = useState(0);
+  const [couponMessage, setCouponMessage] = useState("");
+  const [pending, startTransition] = useTransition();
+  const total = cartTotal(items);
+  const editingItem = items.find((i) => i.id === editing);
+
+  const applyCoupon = () =>
+    startTransition(async () => {
+      const r = await validateCoupon(coupon, total);
+      if (!r.valid) {
+        setDiscount(0);
+        setCouponMessage(r.message || "Cupom inválido.");
+      } else {
+        setDiscount(r.desconto ?? 0);
+        setCouponMessage(
+          `Desconto aplicado: R$ ${(r.desconto ?? 0).toFixed(2).replace(".", ",")}`,
+        );
+      }
+    });
+
+  return (
+    <main className="mx-auto max-w-3xl px-4 py-6 md:px-6">
+      <Link href="/" className="inline-flex items-center gap-2 text-sm opacity-70">
+        <ArrowLeft className="h-4 w-4" />
+        Voltar ao cardápio
+      </Link>
+      <h1 className="mt-6 text-3xl font-extrabold">Seu carrinho</h1>
+
+      {items.length === 0 ? (
+        <div className="py-16 text-center">
+          <p className="opacity-70">Seu carrinho está vazio.</p>
+          <Link
+            href="/"
+            className="mt-5 inline-flex min-h-10 items-center justify-center rounded-md bg-[var(--color-primary)] px-4 font-medium text-white"
+          >
+            Ver cardápio
+          </Link>
+        </div>
+      ) : (
+        <div className="mt-6 grid gap-4">
+          {items.map((item) => (
+            <Card key={item.id}>
+              <div className="flex gap-4">
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-bold">{item.product.nome}</h2>
+                  <p className="mt-1 text-sm opacity-65">
+                    R$ {item.unitPrice.toFixed(2).replace(".", ",")} cada
+                  </p>
+                  {item.options.length > 0 && (
+                    <p className="mt-2 text-xs opacity-65">
+                      {item.options.map((o) => o.nome).join(", ")}
+                    </p>
+                  )}
+                  {item.addons.length > 0 && (
+                    <p className="text-xs opacity-65">
+                      + {item.addons.map((a) => a.nome).join(", ")}
+                    </p>
+                  )}
+                  <div className="mt-4 flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setQuantity(item.id, item.quantity - 1)}
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <span className="min-w-6 text-center">{item.quantity}</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setQuantity(item.id, item.quantity + 1)}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setEditing(item.id)}>
+                      Editar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="ml-auto"
+                      onClick={() => remove(item.id)}
+                      aria-label="Remover item"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <strong className="text-[var(--color-primary)]">
+                  R$ {(item.unitPrice * item.quantity).toFixed(2).replace(".", ",")}
+                </strong>
+              </div>
+            </Card>
+          ))}
+
+          <Card>
+            <h2 className="font-bold">Cupom</h2>
+            <div className="mt-3 flex gap-2">
+              <Input
+                value={coupon}
+                onChange={(e) => setCoupon(e.target.value.toUpperCase())}
+                placeholder="Código"
+              />
+              <Button variant="outline" disabled={pending} onClick={applyCoupon}>
+                Aplicar
+              </Button>
+            </div>
+            {couponMessage && <p className="mt-2 text-sm">{couponMessage}</p>}
+          </Card>
+
+          <Card>
+            <div className="flex items-center justify-between">
+              <span>Subtotal</span>
+              <span className="font-bold">R$ {total.toFixed(2).replace(".", ",")}</span>
+            </div>
+            {discount > 0 && (
+              <div className="mt-2 flex items-center justify-between text-sm">
+                <span>Desconto</span>
+                <span>- R$ {discount.toFixed(2).replace(".", ",")}</span>
+              </div>
+            )}
+            {minimumOrder > 0 && total < minimumOrder && (
+              <p className="mt-3 text-sm text-[var(--color-danger)]">
+                Pedido mínimo: R$ {minimumOrder.toFixed(2).replace(".", ",")}
+              </p>
+            )}
+            <Button
+              size="lg"
+              className="mt-4 w-full"
+              disabled={minimumOrder > 0 && total < minimumOrder}
+              onClick={() => {
+                window.location.href = "/checkout";
+              }}
+            >
+              Continuar
+            </Button>
+          </Card>
+        </div>
+      )}
+
+      {editingItem && (
+        <ProductDetail
+          product={editingItem.product}
+          groups={optionGroups.filter((g) => g.product_id === editingItem.product.id)}
+          options={options}
+          addons={addons}
+          availableAddonIds={productAddons
+            .filter((x) => x.product_id === editingItem.product.id)
+            .map((x) => x.addon_id)}
+          existingItem={editingItem}
+          open={Boolean(editing)}
+          onClose={() => setEditing(null)}
+        />
+      )}
+    </main>
+  );
+}
