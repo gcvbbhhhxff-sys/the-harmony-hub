@@ -1,5 +1,53 @@
 "use client";
-import { useEffect,useMemo,useState,useTransition } from "react";
-import { createClient } from "@/lib/supabase/client";import { setOrderStatus } from "@/server/actions/admin-orders";import { Badge } from "@/components/ui/badge";import { Button } from "@/components/ui/button";import { Card } from "@/components/ui/card";import { Dialog } from "@/components/ui/dialog";import { Input } from "@/components/ui/input";
-type Status="recebido"|"preparando"|"saiu_para_entrega"|"entregue"|"cancelado";type Order={id:string;status:Status;status_pagamento:string;total:number;criado_em:string;customer:{nome:string;telefone:string}|null;items:{nome:string;quantidade:number;preco_unitario:number}[];address:{rua:string;numero:string;bairro:string;cidade:string;cep:string}|null;observacoes:string|null};const columns:Status[]=["recebido","preparando","saiu_para_entrega","entregue","cancelado"];const labels:Record<Status,string>={recebido:"Recebido",preparando:"Preparando",saiu_para_entrega:"Saiu para entrega",entregue:"Entregue",cancelado:"Cancelado"};
-export function OrdersBoard({initial}:{initial:Order[]}){const [orders,setOrders]=useState(initial);const [query,setQuery]=useState("");const [statusFilter,setStatusFilter]=useState<Status|"todos">("todos");const [selected,setSelected]=useState<Order|null>(null);const [pending,startTransition]=useTransition();useEffect(()=>{const supabase=createClient();let previous=initial.length;const channel=supabase.channel("admin-orders").on("postgres_changes",{event:"*",schema:"public",table:"orders"},payload=>{setOrders(current=>{if(payload.eventType==="INSERT"){window.dispatchEvent(new CustomEvent("new-paid-order"));return [payload.new as Order,...current]}return current.map(o=>o.id===(payload.new as Order).id?{...o,...payload.new}:o)})}).subscribe();return()=>{void supabase.removeChannel(channel);void previous}},[initial]);useEffect(()=>{const play=()=>{const ctx=new AudioContext();const osc=ctx.createOscillator();const gain=ctx.createGain();osc.connect(gain);gain.connect(ctx.destination);osc.start();gain.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+0.4);osc.stop(ctx.currentTime+0.4)};window.addEventListener("new-paid-order",play);return()=>window.removeEventListener("new-paid-order",play)},[]);const filtered=useMemo(()=>orders.filter(o=>{const term=query.toLowerCase();const text=`${o.id} ${o.customer?.nome??""} ${o.customer?.telefone??""}`.toLowerCase();return (!term||text.includes(term))&&(statusFilter==="todos"||o.status===statusFilter)}),[orders,query,statusFilter]);const move=(id:string,status:Status)=>startTransition(async()=>{const reason=status==="cancelado"?window.prompt("Motivo do cancelamento")||"":undefined;const r=await setOrderStatus(id,status,reason);if(!r.ok)window.alert(r.message)});return <><div className="mt-6 grid gap-3 md:grid-cols-[1fr_180px]"><Input placeholder="Buscar nome, telefone ou pedido" value={query} onChange={e=>setQuery(e.target.value)}/><select className="h-10 rounded-md border px-3" value={statusFilter} onChange={e=>setStatusFilter(e.target.value as Status|"todos")}><option value="todos">Todos os status</option>{columns.map(s=><option key={s} value={s}>{labels[s]}</option>)}</select></div><div className="mt-6 grid gap-4 xl:grid-cols-5">{columns.map(status=><section key={status}><div className="mb-3 flex items-center justify-between"><h2 className="font-bold">{labels[status]}</h2><span className="text-xs opacity-55">{filtered.filter(o=>o.status===status).length}</span></div><div className="grid gap-3">{filtered.filter(o=>o.status===status).map(order=><Card key={order.id} className={order.status_pagamento!=="confirmado"?"opacity-55":""}><button type="button" className="w-full text-left" onClick={()=>setSelected(order)}><div className="flex justify-between gap-3"><div><p className="font-bold">#{order.id.slice(0,8)}</p><p className="text-sm">{order.customer?.nome||"Cliente"}</p></div><Badge status={status==="saiu_para_entrega"?"saiu":status}>{order.status_pagamento==="confirmado"?labels[status]:"Aguardando pagamento"}</Badge></div><p className="mt-3 text-xs opacity-55">{new Date(order.criado_em).toLocaleString("pt-BR")}</p><div className="mt-2 font-bold">R$ {Number(order.total).toFixed(2).replace(".",",")}</div></button>{order.status_pagamento==="confirmado"&&status!=="entregue"&&status!=="cancelado"&&<Button className="mt-3 w-full" size="sm" disabled={pending} onClick={()=>move(order.id,status==="recebido"?"preparando":status==="preparando"?"saiu_para_entrega":"entregue")}>Avançar</Button>}</Card>)}</div></section>)}</div><Dialog open={Boolean(selected)} onClose={()=>setSelected(null)} title={selected?`Pedido #${selected.id.slice(0,8)}`:"Pedido"}>{selected?<div className="grid gap-4 text-sm"><p><strong>Cliente:</strong> {selected.customer?.nome||"—"}</p>{selected.customer?.telefone&&<p><strong>Telefone:</strong> <a className="underline" href={`https://wa.me/${selected.customer.telefone.replace(/\D/g,"")}`}>WhatsApp</a></p>}<div><strong>Itens</strong><div className="mt-2 grid gap-1">{selected.items.map((i,n)=><p key={n}>{i.quantidade}× {i.nome} — R$ {Number(i.preco_unitario).toFixed(2).replace(".",",")}</p>)}</div></div>{selected.address&&<p><strong>Endereço:</strong> {selected.address.rua}, {selected.address.numero} — {selected.address.bairro}, {selected.address.cidade} — {selected.address.cep}</p>}{selected.observacoes&&<p><strong>Observações:</strong> {selected.observacoes}</p>}<Button onClick={()=>setSelected(null)}>Fechar</Button></div>:null}</Dialog></>}
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { setOrderStatus } from "@/server/actions/admin-orders";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+
+type Status = "recebido" | "preparando" | "saiu_para_entrega" | "entregue" | "cancelado";
+type Order = { id: string; status: Status; status_pagamento: string; total: number; criado_em: string; customer: { nome: string; telefone: string } | null; items: { nome: string; quantidade: number; preco_unitario: number }[]; address: { rua: string; numero: string; bairro: string; cidade: string; cep: string } | null; observacoes: string | null };
+const columns: Status[] = ["recebido", "preparando", "saiu_para_entrega", "entregue", "cancelado"];
+const labels: Record<Status, string> = { recebido: "Recebido", preparando: "Preparando", saiu_para_entrega: "Saiu para entrega", entregue: "Entregue", cancelado: "Cancelado" };
+
+export function OrdersBoard({ initial }: { initial: Order[] }) {
+  const [orders, setOrders] = useState(initial);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<Status | "todos">("todos");
+  const [selected, setSelected] = useState<Order | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase.channel("admin-orders").on("postgres_changes", { event: "*", schema: "public", table: "orders" }, (payload) => {
+      setOrders((current) => {
+        if (payload.eventType === "INSERT") return [payload.new as Order, ...current];
+        return current.map((order) => order.id === (payload.new as Order).id ? { ...order, ...payload.new } : order);
+      });
+    }).subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, []);
+
+  const filtered = useMemo(() => orders.filter((order) => {
+    const term = query.toLocaleLowerCase("pt-BR");
+    const text = `${order.id} ${order.customer?.nome ?? ""} ${order.customer?.telefone ?? ""}`.toLocaleLowerCase("pt-BR");
+    return (!term || text.includes(term)) && (statusFilter === "todos" || order.status === statusFilter);
+  }), [orders, query, statusFilter]);
+
+  const move = (id: string, status: Status) => startTransition(async () => {
+    const reason = status === "cancelado" ? window.prompt("Motivo do cancelamento") || "" : undefined;
+    const result = await setOrderStatus(id, status, reason);
+    if (!result.ok) window.alert(result.message);
+  });
+
+  return <>
+    <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_200px]"><Input placeholder="Buscar nome, telefone ou pedido" value={query} onChange={(event) => setQuery(event.target.value)} /><select className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as Status | "todos")}><option value="todos">Todos os status</option>{columns.map((status) => <option key={status} value={status}>{labels[status]}</option>)}</select></div>
+    <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5 xl:min-w-[1100px]">
+      {columns.map((status) => <section key={status}><div className="mb-3 flex items-center justify-between"><h2 className="font-bold">{labels[status]}</h2><span className="text-xs text-[var(--color-muted)]">{filtered.filter((order) => order.status === status).length}</span></div><div className="grid gap-3">{filtered.filter((order) => order.status === status).map((order) => <Card key={order.id} className={order.status_pagamento !== "confirmado" ? "opacity-55" : "border-black/5"}><button type="button" className="w-full text-left" onClick={() => setSelected(order)}><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="font-bold">#{order.id.slice(0, 8)}</p><p className="truncate text-sm">{order.customer?.nome || "Cliente"}</p></div><Badge status={status === "saiu_para_entrega" ? "saiu" : status}>{order.status_pagamento === "confirmado" ? labels[status] : "Aguardando pagamento"}</Badge></div><p className="mt-3 text-xs text-[var(--color-muted)]">{new Date(order.criado_em).toLocaleString("pt-BR")}</p><div className="mt-2 font-bold">R$ {Number(order.total).toFixed(2).replace(".", ",")}</div></button>{order.status_pagamento === "confirmado" && status !== "entregue" && status !== "cancelado" && <Button className="mt-3 h-10 w-full rounded-xl" size="sm" disabled={pending} onClick={() => move(order.id, status === "recebido" ? "preparando" : status === "preparando" ? "saiu_para_entrega" : "entregue")}>Avançar</Button>}</Card>)}</div></section>)}
+    </div>
+    <Dialog open={Boolean(selected)} onClose={() => setSelected(null)} title={selected ? `Pedido #${selected.id.slice(0, 8)}` : "Pedido"}>{selected ? <div className="grid gap-4 text-sm"><p><strong>Cliente:</strong> {selected.customer?.nome || "—"}</p>{selected.customer?.telefone && <p><strong>Telefone:</strong> <a className="underline" href={`https://wa.me/${selected.customer.telefone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">WhatsApp</a></p>}<div><strong>Itens</strong><div className="mt-2 grid gap-1">{selected.items.map((item, index) => <p key={`${item.nome}-${index}`}>{item.quantidade}× {item.nome} — R$ {Number(item.preco_unitario).toFixed(2).replace(".", ",")}</p>)}</div></div>{selected.address && <p><strong>Endereço:</strong> {selected.address.rua}, {selected.address.numero} — {selected.address.bairro}, {selected.address.cidade} — {selected.address.cep}</p>}{selected.observacoes && <p><strong>Observações:</strong> {selected.observacoes}</p>}<Button className="h-11 rounded-xl" onClick={() => setSelected(null)}>Fechar</Button></div> : null}</Dialog>
+  </>;
+}
