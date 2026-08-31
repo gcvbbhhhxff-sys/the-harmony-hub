@@ -19,14 +19,19 @@ type HistoryRow = {
   motivo_cancelamento: string | null;
 };
 
-export default async function OrderPage({ params }: { params: { id: string } }) {
+type OrderPageProps = {
+  params: Promise<{ id: string }>;
+};
+
+export default async function OrderPage({ params }: OrderPageProps) {
+  const { id } = await params;
   const supabase = await createClient();
   const { data: order } = await supabase
     .from("orders")
     .select(
       "id,status,subtotal,taxa_entrega,desconto,total,forma_pagamento,status_pagamento,observacoes,criado_em,address:addresses(rua,numero,complemento,bairro,cidade,cep,referencia),items:order_items(quantidade,preco_unitario,opcoes_selecionadas,adicionais_selecionados,observacao_item,products(nome))",
     )
-    .eq("id", params.id)
+    .eq("id", id)
     .maybeSingle();
 
   if (!order) notFound();
@@ -34,7 +39,7 @@ export default async function OrderPage({ params }: { params: { id: string } }) 
   const { data: history } = await supabase
     .from("order_status_history")
     .select("status,alterado_em,motivo_cancelamento")
-    .eq("order_id", params.id)
+    .eq("order_id", id)
     .order("alterado_em");
   const { data: settings } = await supabase
     .from("restaurant_settings")
