@@ -7,7 +7,7 @@ type OneOrMany<T> = T | T[] | null;
 
 type OrderRow = {
   id: string;
-  status: "recebido" | "preparando" | "saiu_para_entrega" | "entregue" | "cancelado";
+  status: "recebido" | "preparando" | "pronto" | "saiu_para_entrega" | "entregue" | "cancelado";
   status_pagamento: "pendente" | "confirmado" | "falhou";
   total: number;
   criado_em: string;
@@ -23,12 +23,14 @@ type OrderRow = {
 
 export default async function OrdersPage() {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("orders")
     .select(
       "id,status,status_pagamento,total,criado_em,observacoes,customers(nome,telefone),addresses(rua,numero,bairro,cidade,cep),order_items(quantidade,preco_unitario,products(nome))",
     )
     .order("criado_em", { ascending: false });
+
+  if (error) console.error("[OrdersPage]", error);
 
   const rows = (data ?? []) as unknown as OrderRow[];
   const initial = rows.map((o) => {
