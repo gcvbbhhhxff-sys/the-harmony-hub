@@ -31,7 +31,7 @@ export function ProductDetail({ product, groups, options, addons, availableAddon
     setSelectedAddons(existingItem?.addons.map((addon) => addon.addonId) ?? []);
     setObservation(existingItem?.observation ?? "");
     setQuantity(Math.max(1, existingItem?.quantity ?? 1));
-  }, [open, product.id, existingItem?.id]);
+  }, [open, product.id, groups, existingItem]);
 
   const chosenOptions: CartSelection[] = Object.entries(selected).flatMap(([groupId, ids]) => ids.flatMap((id) => {
     const option = options.find((item) => item.id === id && item.group_id === groupId && item.ativo);
