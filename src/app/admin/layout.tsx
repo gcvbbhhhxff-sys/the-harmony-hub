@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireAdmin } from "@/server/admin";
 import { Logo } from "@/components/ui/logo";
 import { LayoutDashboard, ClipboardList, UtensilsCrossed, TicketPercent, MapPinned, Settings } from "lucide-react";
@@ -7,7 +8,7 @@ export const dynamic="force-dynamic";
 
 export default async function AdminLayout({children}:{children:React.ReactNode}){
   const auth=await requireAdmin();
-  if(!auth)return children;
+  if(!auth) redirect("/admin/login");
   const admin=auth.admin;
   const links=[
     {href:"/admin/painel",label:"Dashboard",icon:LayoutDashboard,always:true},
