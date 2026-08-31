@@ -64,51 +64,65 @@ button { -webkit-tap-highlight-color: transparent; }
   to { opacity: 1; }
 }
 
-body:has(#inicio) {
-  background: #0d1013;
-}
-
-body:has(#inicio) main {
-  background: var(--color-background);
-}
-
+body:has(#inicio) { background: #0d1013; }
+body:has(#inicio) main { background: var(--color-background); }
 body:has(#inicio) button,
-body:has(#inicio) a {
-  transition-timing-function: cubic-bezier(.22,1,.36,1);
-}
-
-body:has(#inicio) button:not(:disabled):active {
-  transform: translateY(1px) scale(.985);
-}
-
-body:has(#inicio) #inicio > div:last-child > div {
-  animation: rise-in .8s cubic-bezier(.22,1,.36,1) both;
-}
-
-body:has(#inicio) #inicio h1 {
-  text-wrap: balance;
-  text-shadow: 0 14px 36px rgba(0,0,0,.22);
-}
-
-body:has(#inicio) #inicio p:not([class*="uppercase"]) {
-  color: rgba(255,255,255,.86);
-}
-
+body:has(#inicio) a { transition-timing-function: cubic-bezier(.22,1,.36,1); }
+body:has(#inicio) button:not(:disabled):active { transform: translateY(1px) scale(.985); }
+body:has(#inicio) #inicio > div:last-child > div { animation: rise-in .8s cubic-bezier(.22,1,.36,1) both; }
+body:has(#inicio) #inicio h1 { text-wrap: balance; text-shadow: 0 14px 36px rgba(0,0,0,.22); }
+body:has(#inicio) #inicio p:not([class*="uppercase"]) { color: rgba(255,255,255,.88); }
 body:has(#inicio) section[id="cardapio"] > div > h2,
-body:has(#inicio) section[id="ofertas"] h2 {
-  letter-spacing: -.035em;
+body:has(#inicio) section[id="ofertas"] h2 { letter-spacing: -.035em; }
+body:has(#inicio) .group:hover { transition-duration: 260ms; }
+body:has(#inicio) .group:hover > div:first-child { box-shadow: inset 0 0 0 1px rgba(215,173,53,.08); }
+body:has(#inicio) aside > div { box-shadow: 0 24px 70px rgba(18,18,18,.10); }
+
+/* Premium public-site surfaces: scoped so admin UI is untouched. */
+body:has(#inicio) main > header {
+  background: rgba(13,16,19,.84) !important;
+  backdrop-filter: blur(20px) saturate(125%);
+  -webkit-backdrop-filter: blur(20px) saturate(125%);
+  box-shadow: 0 14px 38px rgba(0,0,0,.16) !important;
 }
 
-body:has(#inicio) .group:hover {
-  transition-duration: 260ms;
+body:has(#inicio) main > div > div > section[id="ofertas"] .rounded-2xl.bg-white,
+body:has(#inicio) main > div > div > section[id="cardapio"] .rounded-2xl.bg-white {
+  border-color: rgba(17,17,17,.065) !important;
+  box-shadow: 0 18px 46px rgba(17,17,17,.075), 0 3px 12px rgba(17,17,17,.025) !important;
+  transition: transform 280ms cubic-bezier(.22,1,.36,1), box-shadow 280ms cubic-bezier(.22,1,.36,1), border-color 280ms ease !important;
 }
 
-body:has(#inicio) .group:hover > div:first-child {
-  box-shadow: inset 0 0 0 1px rgba(215,173,53,.08);
+body:has(#inicio) main > div > div > section[id="ofertas"] .rounded-2xl.bg-white:hover,
+body:has(#inicio) main > div > div > section[id="cardapio"] .rounded-2xl.bg-white:hover {
+  transform: translateY(-5px);
+  border-color: rgba(215,173,53,.20) !important;
+  box-shadow: 0 26px 65px rgba(17,17,17,.105), 0 4px 16px rgba(215,173,53,.06) !important;
 }
 
-body:has(#inicio) aside > div {
-  box-shadow: 0 24px 70px rgba(18,18,18,.10);
+body:has(#inicio) #inicio .inline-flex.rounded-full {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 8px 26px rgba(0,0,0,.16);
+}
+
+body:has(#inicio) section.bg-white {
+  background: rgba(255,255,255,.92) !important;
+}
+
+body:has(#inicio) .fixed.inset-x-3.bottom-3 {
+  filter: drop-shadow(0 16px 32px rgba(0,0,0,.18));
+}
+
+body:has(#inicio) input,
+body:has(#inicio) textarea,
+body:has(#inicio) select {
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+body:has(#inicio) input:focus,
+body:has(#inicio) textarea:focus,
+body:has(#inicio) select:focus {
+  border-color: rgba(215,173,53,.65) !important;
+  box-shadow: 0 0 0 4px rgba(215,173,53,.10);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -122,7 +136,7 @@ body:has(#inicio) aside > div {
 
 @media (max-width: 640px) {
   body { overflow-x: hidden; }
-  body:has(#inicio) #inicio {
-    min-height: 520px;
-  }
+  body:has(#inicio) #inicio { min-height: 520px; }
+  body:has(#inicio) main > div > div > section[id="ofertas"] .rounded-2xl.bg-white:hover,
+  body:has(#inicio) main > div > div > section[id="cardapio"] .rounded-2xl.bg-white:hover { transform: none; }
 }
