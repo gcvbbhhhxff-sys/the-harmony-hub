@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/server/admin";
 
 type SettingsForm = {
@@ -98,90 +97,93 @@ export async function saveRestaurantSettings(form: SettingsForm) {
   }
 }
 
-async function validateImage(file: File) {
-  const allowed = new Set(["image/png", "image/jpeg", "image/webp", "image/svg+xml"]);
-  if (!allowed.has(file.type)) return "Formato de imagem não permitido. Use PNG, JPEG, WEBP ou SVG.";
+function validateImage(file: File, kind: "logo" | "background") {
+  const allowed = kind === "logo"
+    ? new Set(["image/png", "image/jpeg", "image/webp", "image/svg+xml"])
+    : new Set(["image/png", "image/jpeg", "image/webp"]);
+  if (!allowed.has(file.type)) return kind === "logo"
+    ? "Formato de logo não permitido. Use PNG, JPEG, WEBP ou SVG."
+    : "Formato de imagem não permitido. Use PNG, JPEG ou WEBP.";
   if (file.size > 5 * 1024 * 1024) return "A imagem deve ter no máximo 5 MB.";
   return null;
 }
 
-export async function uploadRestaurantLogo(formData: FormData) {
+async function uploadRestaurantAsset(formData: FormData, kind: "logo" | "background") {
   try {
     const db = await guard();
     const file = formData.get("file");
     if (!(file instanceof File)) return { ok: false, message: "Arquivo inválido." };
-    const validationError = await validateImage(file);
+    const validationError = validateImage(file, kind);
     if (validationError) return { ok: false, message: validationError };
+
     const settingsId = await ensureSettingsRow(db);
-    const adminDb = createAdminClient();
-    const ext = file.name.split(".").pop()?.toLowerCase() || "png";
-    const fileName = `logo/${crypto.randomUUID()}.${ext}`;
-    const { error: uploadError } = await adminDb.storage.from("restaurant-assets").upload(fileName, file, { upsert: false, contentType: file.type });
-    if (uploadError) return { ok: false, message: "Erro ao fazer upload da logo." };
-    const url = adminDb.storage.from("restaurant-assets").getPublicUrl(fileName).data.publicUrl;
-    const { error: updateError } = await db.from("restaurant_settings").update({ logo_url: url }).eq("id", settingsId);
-    if (updateError) return { ok: false, message: "Erro ao salvar a logo no restaurante." };
+    const ext = file.name.split(".").pop()?.toLowerCase() || (kind === "logo" ? "png" : "jpg");
+    const fileName = `${kind}/${crypto.randomUUID()}.${ext}`;
+    const bucket = "restaurant-assets";
+
+    const { error: uploadError } = await db.storage.from(bucket).upload(fileName, file, {
+      upsert: false,
+      contentType: file.type,
+      cacheControl: "3600",
+    });
+    if (uploadError) {
+      console.error(`[uploadRestaurantAsset:${kind}]`, uploadError);
+      return { ok: false, message: `Não foi possível enviar ${kind === "logo" ? "a logo" : "a imagem de fundo"}.` };
+    }
+
+    const url = db.storage.from(bucket).getPublicUrl(fileName).data.publicUrl;
+    const column = kind === "logo" ? "logo_url" : "background_url";
+    const { error: updateError } = await db.from("restaurant_settings").update({ [column]: url }).eq("id", settingsId);
+    if (updateError) {
+      console.error(`[uploadRestaurantAsset:${kind}:settings]`, updateError);
+      await db.storage.from(bucket).remove([fileName]);
+      return { ok: false, message: `A imagem foi enviada, mas não foi possível vinculá-la às configurações.` };
+    }
+
     revalidatePath("/");
     revalidatePath("/admin/configuracoes");
     return { ok: true, url };
   } catch (error) {
-    console.error("[uploadRestaurantLogo]", error);
+    console.error(`[uploadRestaurantAsset:${kind}]`, error);
     return { ok: false, message: error instanceof Error ? error.message : "Erro ao fazer upload." };
   }
+}
+
+export async function uploadRestaurantLogo(formData: FormData) {
+  return uploadRestaurantAsset(formData, "logo");
 }
 
 export async function uploadRestaurantBackground(formData: FormData) {
-  try {
-    const db = await guard();
-    const file = formData.get("file");
-    if (!(file instanceof File)) return { ok: false, message: "Arquivo inválido." };
-    const validationError = await validateImage(file);
-    if (validationError) return { ok: false, message: validationError };
-    const settingsId = await ensureSettingsRow(db);
-    const adminDb = createAdminClient();
-    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-    const fileName = `background/${crypto.randomUUID()}.${ext}`;
-    const { error: uploadError } = await adminDb.storage.from("restaurant-assets").upload(fileName, file, { upsert: false, contentType: file.type });
-    if (uploadError) return { ok: false, message: "Erro ao fazer upload da imagem de fundo." };
-    const url = adminDb.storage.from("restaurant-assets").getPublicUrl(fileName).data.publicUrl;
-    const { error: updateError } = await db.from("restaurant_settings").update({ background_url: url }).eq("id", settingsId);
-    if (updateError) return { ok: false, message: "Erro ao salvar a imagem de fundo." };
-    revalidatePath("/");
-    revalidatePath("/admin/configuracoes");
-    return { ok: true, url };
-  } catch (error) {
-    console.error("[uploadRestaurantBackground]", error);
-    return { ok: false, message: error instanceof Error ? error.message : "Erro ao fazer upload." };
-  }
+  return uploadRestaurantAsset(formData, "background");
 }
 
 export async function saveCoupon(input:{id?:string;codigo:string;tipo:"percentual"|"fixo";valor:number;pedido_minimo:number;limite_usos:number|null;validade:string;ativo:boolean}){
- try{
-  const db=await guard();
-  const codigo=input.codigo.trim().toUpperCase();
-  if(!codigo)return{ok:false,message:"Informe o código do cupom."};
-  if(!Number.isFinite(input.valor)||input.valor<0)return{ok:false,message:"Valor do cupom inválido."};
-  if(input.tipo==="percentual"&&input.valor>100)return{ok:false,message:"O percentual não pode ultrapassar 100%."};
-  if(!Number.isFinite(input.pedido_minimo)||input.pedido_minimo<0)return{ok:false,message:"Pedido mínimo inválido."};
-  if(input.limite_usos!==null&&(!Number.isInteger(input.limite_usos)||input.limite_usos<1))return{ok:false,message:"Limite de usos inválido."};
-  const payload={codigo,tipo:input.tipo,valor:Number(input.valor),pedido_minimo:Number(input.pedido_minimo),limite_usos:input.limite_usos,validade:input.validade?new Date(input.validade).toISOString():null,ativo:Boolean(input.ativo),is_demo:false};
-  const result=input.id?await db.from("coupons").update(payload).eq("id",input.id):await db.from("coupons").insert(payload);
-  if(result.error)return{ok:false,message:"Não foi possível salvar o cupom."};
-  revalidatePath("/admin/cupons");
-  return{ok:true,message:"Cupom salvo."};
- }catch(error){return{ok:false,message:error instanceof Error?error.message:"Erro ao salvar o cupom."};}
+  try {
+    const db=await guard();
+    const codigo=input.codigo.trim().toUpperCase();
+    if(!codigo)return{ok:false,message:"Informe o código do cupom."};
+    if(!Number.isFinite(input.valor)||input.valor<0)return{ok:false,message:"Valor do cupom inválido."};
+    if(input.tipo==="percentual"&&input.valor>100)return{ok:false,message:"O percentual não pode ultrapassar 100%."};
+    if(!Number.isFinite(input.pedido_minimo)||input.pedido_minimo<0)return{ok:false,message:"Pedido mínimo inválido."};
+    if(input.limite_usos!==null&&(!Number.isInteger(input.limite_usos)||input.limite_usos<1))return{ok:false,message:"Limite de usos inválido."};
+    const payload={codigo,tipo:input.tipo,valor:Number(input.valor),pedido_minimo:Number(input.pedido_minimo),limite_usos:input.limite_usos,validade:input.validade?new Date(input.validade).toISOString():null,ativo:Boolean(input.ativo),is_demo:false};
+    const result=input.id?await db.from("coupons").update(payload).eq("id",input.id):await db.from("coupons").insert(payload);
+    if(result.error)return{ok:false,message:"Não foi possível salvar o cupom."};
+    revalidatePath("/admin/cupons");
+    return{ok:true,message:"Cupom salvo."};
+  } catch(error) { return{ok:false,message:error instanceof Error?error.message:"Erro ao salvar o cupom."}; }
 }
 
 export async function saveDeliveryZone(input:{id?:string;nome:string;taxa:number;ativo:boolean}){
- try{
-  const db=await guard();
-  const nome=input.nome.trim();
-  if(!nome)return{ok:false,message:"Informe o bairro/zona."};
-  if(!Number.isFinite(input.taxa)||input.taxa<0)return{ok:false,message:"Taxa inválida."};
-  const payload={nome,taxa:Number(input.taxa),ativo:Boolean(input.ativo),is_demo:false};
-  const result=input.id?await db.from("delivery_zones").update(payload).eq("id",input.id):await db.from("delivery_zones").insert(payload);
-  if(result.error)return{ok:false,message:"Não foi possível salvar a zona de entrega."};
-  revalidatePath("/admin/zonas-de-entrega");
-  return{ok:true,message:"Zona salva."};
- }catch(error){return{ok:false,message:error instanceof Error?error.message:"Erro ao salvar a zona."};}
+  try {
+    const db=await guard();
+    const nome=input.nome.trim();
+    if(!nome)return{ok:false,message:"Informe o bairro/zona."};
+    if(!Number.isFinite(input.taxa)||input.taxa<0)return{ok:false,message:"Taxa inválida."};
+    const payload={nome,taxa:Number(input.taxa),ativo:Boolean(input.ativo),is_demo:false};
+    const result=input.id?await db.from("delivery_zones").update(payload).eq("id",input.id):await db.from("delivery_zones").insert(payload);
+    if(result.error)return{ok:false,message:"Não foi possível salvar a zona de entrega."};
+    revalidatePath("/admin/zonas-de-entrega");
+    return{ok:true,message:"Zona salva."};
+  } catch(error) { return{ok:false,message:error instanceof Error?error.message:"Erro ao salvar a zona."}; }
 }
