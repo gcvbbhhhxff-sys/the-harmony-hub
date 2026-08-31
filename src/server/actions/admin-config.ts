@@ -3,9 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getAdminDb } from "@/server/actions/admin-context";
+import { saveCoupon as saveCouponAction } from "@/server/actions/admin-coupons";
+import { saveDeliveryZone as saveDeliveryZoneAction } from "@/server/actions/admin-delivery-zones";
 
-export { saveCoupon } from "@/server/actions/admin-coupons";
-export { saveDeliveryZone } from "@/server/actions/admin-delivery-zones";
+export async function saveCoupon(...args: Parameters<typeof saveCouponAction>) {
+  return saveCouponAction(...args);
+}
+
+export async function saveDeliveryZone(...args: Parameters<typeof saveDeliveryZoneAction>) {
+  return saveDeliveryZoneAction(...args);
+}
 
 type SettingsForm = {
   id?: string;
