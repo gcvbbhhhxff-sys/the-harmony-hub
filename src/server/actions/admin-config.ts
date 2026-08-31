@@ -1,13 +1,137 @@
 "use server";
+
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/server/admin";
 
-async function db(){const a=await requireAdmin();if(!a||a.admin.papel!=="admin")throw new Error("Não autorizado.");return createClient();}
-export async function saveCoupon(i:{id?:string;codigo:string;tipo:"percentual"|"fixo";valor:number;pedido_minimo:number;limite_usos:number|null;validade:string|null;ativo:boolean}){const s=await db();if(!i.codigo.trim()||i.valor<0||i.pedido_minimo<0||(i.tipo==="percentual"&&i.valor>100))return{ok:false,message:"Dados inválidos."};const p={codigo:i.codigo.trim().toUpperCase(),tipo:i.tipo,valor:i.valor,pedido_minimo:i.pedido_minimo,limite_usos:i.limite_usos,validade:i.validade||null,ativo:i.ativo};const q=i.id?s.from("coupons").update(p).eq("id",i.id):s.from("coupons").insert(p);const{error}=await q;if(error)return{ok:false,message:error.message};revalidatePath("/admin/cupons");return{ok:true};}
-export async function saveDeliveryZone(i:{id?:string;nome:string;taxa:number;ativo:boolean}){const s=await db();if(!i.nome.trim()||i.taxa<0)return{ok:false,message:"Zona inválida."};const q=i.id?s.from("delivery_zones").update({nome:i.nome.trim(),taxa:i.taxa,ativo:i.ativo}).eq("id",i.id):s.from("delivery_zones").insert({nome:i.nome.trim(),taxa:i.taxa,ativo:i.ativo});const{error}=await q;if(error)return{ok:false,message:error.message};revalidatePath("/admin/zonas-de-entrega");return{ok:true};}
-export async function saveRestaurantSettings(i:{nome:string;logo_url?:string;background_url?:string;taxa_base_entrega:number;valor_minimo_pedido:number;chave_pix?:string;whatsapp?:string;tempo_estimado?:string;horario_funcionamento:Record<string,{abertura:string;fechamento:string;ativo:boolean}>}){const s=await db();if(!i.nome.trim()||i.taxa_base_entrega<0||i.valor_minimo_pedido<0)return{ok:false,message:"Configuração inválida."};const{data:cur}=await s.from("restaurant_settings").select("id").limit(1).maybeSingle();const p={nome:i.nome.trim(),logo_url:i.logo_url?.trim()||null,background_url:i.background_url?.trim()||null,taxa_base_entrega:i.taxa_base_entrega,valor_minimo_pedido:i.valor_minimo_pedido,chave_pix:i.chave_pix?.trim()||null,whatsapp:i.whatsapp?.trim()||null,tempo_estimado:i.tempo_estimado?.trim()||null,horario_funcionamento:i.horario_funcionamento};const q=cur?s.from("restaurant_settings").update(p).eq("id",cur.id):s.from("restaurant_settings").insert(p);const{error}=await q;if(error)return{ok:false,message:error.message};revalidatePath("/");revalidatePath("/admin/configuracoes");return{ok:true};}
-async function uploadBrandAsset(formData:FormData,kind:"logo"|"background"){await db();const file=formData.get("file");if(!(file instanceof File))return{ok:false,message:"Arquivo inválido."};if(file.size>8*1024*1024||!file.type.startsWith("image/"))return{ok:false,message:"Imagem inválida (máximo 8MB)."};const admin=createAdminClient();await admin.storage.createBucket("restaurant-assets",{public:true}).catch(()=>undefined);const ext=file.name.split(".").pop()?.toLowerCase()||"jpg";const path=`branding/${kind}-${crypto.randomUUID()}.${ext}`;const upload=await admin.storage.from("restaurant-assets").upload(path,file,{contentType:file.type,upsert:false});if(upload.error)return{ok:false,message:upload.error.message};const url=admin.storage.from("restaurant-assets").getPublicUrl(path).data.publicUrl;const s=await db();const{data:cur}=await s.from("restaurant_settings").select("id").limit(1).maybeSingle();const field=kind==="logo"?"logo_url":"background_url";const result=cur?await s.from("restaurant_settings").update({[field]:url}).eq("id",cur.id):await s.from("restaurant_settings").insert({nome:"Tabajara's Churrascaria",[field]:url});if(result.error)return{ok:false,message:result.error.message};revalidatePath("/");revalidatePath("/admin/configuracoes");return{ok:true,url};}
-export async function uploadRestaurantLogo(formData:FormData){return uploadBrandAsset(formData,"logo");}
-export async function uploadRestaurantBackground(formData:FormData){return uploadBrandAsset(formData,"background");}
+async function guard() {
+  const auth = await requireAdmin();
+  if (!auth || auth.admin.papel !== "admin") {
+    throw new Error("Não autorizado.");
+  }
+  return createClient();
+}
+
+export async function saveRestaurantSettings(form: any) {
+  try {
+    const db = await guard();
+    
+    const { error } = await db
+      .from("restaurant_settings")
+      .upsert({
+        nome: form.nome || "Seu Restaurante",
+        logo_url: form.logo_url || null,
+        background_url: form.background_url || null,
+        taxa_base_entrega: Number(form.taxa_base_entrega ?? 0),
+        valor_minimo_pedido: Number(form.valor_minimo_pedido ?? 0),
+        chave_pix: form.chave_pix || null,
+        whatsapp: form.whatsapp || null,
+        tempo_estimado: form.tempo_estimado || "30–45 minutos",
+        horario_funcionamento: form.horario_funcionamento || {},
+      });
+
+    if (error) {
+      console.error("[saveRestaurantSettings]", error);
+      return { ok: false, message: "Erro ao salvar configurações." };
+    }
+
+    revalidatePath("/");
+    return { ok: true, message: "Configurações salvas." };
+  } catch (error) {
+    console.error("[saveRestaurantSettings]", error);
+    return { ok: false, message: error instanceof Error ? error.message : "Erro ao salvar configurações." };
+  }
+}
+
+export async function uploadRestaurantLogo(formData: FormData) {
+  try {
+    await guard();
+    
+    const file = formData.get("file");
+    if (!(file instanceof File)) {
+      return { ok: false, message: "Arquivo inválido." };
+    }
+
+    const adminDb = createAdminClient();
+    const fileName = `logo-${Date.now()}.${file.name.split(".").pop()}`;
+    
+    const { error: uploadError } = await adminDb.storage
+      .from("restaurant-assets")
+      .upload(fileName, file, { upsert: true });
+
+    if (uploadError) {
+      console.error("[uploadRestaurantLogo]", uploadError);
+      return { ok: false, message: "Erro ao fazer upload da logo." };
+    }
+
+    const { data } = adminDb.storage.from("restaurant-assets").getPublicUrl(fileName);
+    const url = data?.publicUrl;
+
+    if (!url) {
+      return { ok: false, message: "Erro ao obter URL da logo." };
+    }
+
+    const db = await createClient();
+    const { error: updateError } = await db
+      .from("restaurant_settings")
+      .update({ logo_url: url });
+
+    if (updateError) {
+      console.error("[uploadRestaurantLogo]", updateError);
+      return { ok: false, message: "Erro ao salvar logo." };
+    }
+
+    revalidatePath("/");
+    return { ok: true, url };
+  } catch (error) {
+    console.error("[uploadRestaurantLogo]", error);
+    return { ok: false, message: error instanceof Error ? error.message : "Erro ao fazer upload." };
+  }
+}
+
+export async function uploadRestaurantBackground(formData: FormData) {
+  try {
+    await guard();
+    
+    const file = formData.get("file");
+    if (!(file instanceof File)) {
+      return { ok: false, message: "Arquivo inválido." };
+    }
+
+    const adminDb = createAdminClient();
+    const fileName = `background-${Date.now()}.${file.name.split(".").pop()}`;
+    
+    const { error: uploadError } = await adminDb.storage
+      .from("restaurant-assets")
+      .upload(fileName, file, { upsert: true });
+
+    if (uploadError) {
+      console.error("[uploadRestaurantBackground]", uploadError);
+      return { ok: false, message: "Erro ao fazer upload da imagem." };
+    }
+
+    const { data } = adminDb.storage.from("restaurant-assets").getPublicUrl(fileName);
+    const url = data?.publicUrl;
+
+    if (!url) {
+      return { ok: false, message: "Erro ao obter URL da imagem." };
+    }
+
+    const db = await createClient();
+    const { error: updateError } = await db
+      .from("restaurant_settings")
+      .update({ background_url: url });
+
+    if (updateError) {
+      console.error("[uploadRestaurantBackground]", updateError);
+      return { ok: false, message: "Erro ao salvar imagem." };
+    }
+
+    revalidatePath("/");
+    return { ok: true, url };
+  } catch (error) {
+    console.error("[uploadRestaurantBackground]", error);
+    return { ok: false, message: error instanceof Error ? error.message : "Erro ao fazer upload." };
+  }
+}
