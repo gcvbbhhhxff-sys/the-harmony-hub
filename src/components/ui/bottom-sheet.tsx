@@ -16,19 +16,16 @@ export function BottomSheet({open,onClose,title,children}:BottomSheetProps){
   const previousBodyTop=body.style.top;
   const previousBodyWidth=body.style.width;
   const previousHtmlOverscroll=html.style.overscrollBehavior;
-  const previousBodyTouchAction=body.style.touchAction;
   body.style.overflow="hidden";
   body.style.position="fixed";
   body.style.top=`-${scrollY}px`;
   body.style.width="100%";
-  body.style.touchAction="none";
   html.style.overscrollBehavior="none";
   return()=>{
    body.style.overflow=previousBodyOverflow;
    body.style.position=previousBodyPosition;
    body.style.top=previousBodyTop;
    body.style.width=previousBodyWidth;
-   body.style.touchAction=previousBodyTouchAction;
    html.style.overscrollBehavior=previousHtmlOverscroll;
    window.scrollTo(0,scrollY);
   };
