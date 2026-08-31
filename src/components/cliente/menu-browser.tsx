@@ -26,7 +26,17 @@ function isOpenNow(now:Date,schedule:RestaurantSettings["horario_funcionamento"]
  if(item.fechamento>item.abertura)return item.abertura<=time&&time<item.fechamento;
  return time>=item.abertura||time<item.fechamento;
 }
-function getNextOpening(now:Date,schedule:RestaurantSettings["horario_funcionamento"]){const days=["domingo","segunda","terca","quarta","quinta","sexta","sabado"];for(let offset=0;offset<7;offset+=1){const date=new Date(now);date.setDate(now.getDate()+offset);const item=schedule?.[days[date.getDay()]||"domingo"];if(item?.ativo!==false&&item?.abertura)return item.abertura;}return null;}
+function getNextOpening(now:Date,schedule:RestaurantSettings["horario_funcionamento"]){
+ const days=["domingo","segunda","terca","quarta","quinta","sexta","sabado"];
+ for(let offset=0;offset<7;offset+=1){
+  const date=new Date(now);date.setDate(now.getDate()+offset);
+  const day=days[date.getDay()]||"domingo";const item=schedule?.[day];
+  if(!item||item.ativo===false||!item.abertura)continue;
+  if(offset===0){const current=`${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;if(item.abertura>current)return item.abertura;continue;}
+  return item.abertura;
+ }
+ return null;
+}
 
 type Props={categories:Category[];products:Product[];settings:RestaurantSettings;optionGroups:MenuOptionGroup[];options:MenuOption[];addons:MenuAddon[];productAddons:{product_id:string;addon_id:string}[]};
 
