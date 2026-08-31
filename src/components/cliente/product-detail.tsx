@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,27 +12,60 @@ import type { CartAddon, CartItem, CartSelection, MenuAddon, MenuOption, MenuOpt
 
 type Props = { product: Product; groups: MenuOptionGroup[]; options: MenuOption[]; addons: MenuAddon[]; availableAddonIds: string[]; open: boolean; onClose: () => void; existingItem?: CartItem };
 
+function getInitialSelected(groups: MenuOptionGroup[], existingItem?: CartItem) {
+  if (!existingItem) return {};
+  return Object.fromEntries(groups.map((group) => [group.id, existingItem.options.filter((option) => option.groupId === group.id).map((option) => option.optionId)]));
+}
+
 export function ProductDetail({ product, groups, options, addons, availableAddonIds, open, onClose, existingItem }: Props) {
   const addItem = useCartStore((state) => state.addItem);
   const replaceItem = useCartStore((state) => state.replaceItem);
-  const [selected, setSelected] = useState<Record<string, string[]>>(() => existingItem ? Object.fromEntries(groups.map((group) => [group.id, existingItem.options.filter((option) => option.groupId === group.id).map((option) => option.optionId)])) : {});
+  const [selected, setSelected] = useState<Record<string, string[]>>(() => getInitialSelected(groups, existingItem));
   const [selectedAddons, setSelectedAddons] = useState<string[]>(() => existingItem?.addons.map((addon) => addon.addonId) ?? []);
   const [observation, setObservation] = useState(existingItem?.observation ?? "");
-  const [quantity, setQuantity] = useState(existingItem?.quantity ?? 1);
-  const chosenOptions: CartSelection[] = Object.entries(selected).flatMap(([groupId, ids]) => ids.flatMap((id) => { const option = options.find((item) => item.id === id); return option ? [{ optionId: option.id, groupId, nome: option.nome, precoExtra: option.preco_extra }] : []; }));
-  const chosenAddons: CartAddon[] = selectedAddons.flatMap((id) => { const addon = addons.find((item) => item.id === id); return addon ? [{ addonId: addon.id, nome: addon.nome, preco: addon.preco }] : []; });
-  const valid = groups.every((group) => { const count = selected[group.id]?.length ?? 0; return count >= group.min_select && count <= group.max_select; });
+  const [quantity, setQuantity] = useState(Math.max(1, existingItem?.quantity ?? 1));
+
+  useEffect(() => {
+    if (!open) return;
+    setSelected(getInitialSelected(groups, existingItem));
+    setSelectedAddons(existingItem?.addons.map((addon) => addon.addonId) ?? []);
+    setObservation(existingItem?.observation ?? "");
+    setQuantity(Math.max(1, existingItem?.quantity ?? 1));
+  }, [open, product.id, existingItem?.id]);
+
+  const chosenOptions: CartSelection[] = Object.entries(selected).flatMap(([groupId, ids]) => ids.flatMap((id) => {
+    const option = options.find((item) => item.id === id && item.group_id === groupId && item.ativo);
+    return option ? [{ optionId: option.id, groupId, nome: option.nome, precoExtra: option.preco_extra }] : [];
+  }));
+  const chosenAddons: CartAddon[] = selectedAddons.flatMap((id) => {
+    const addon = addons.find((item) => item.id === id && item.ativo);
+    return addon ? [{ addonId: addon.id, nome: addon.nome, preco: addon.preco }] : [];
+  });
+  const valid = groups.every((group) => {
+    const count = selected[group.id]?.length ?? 0;
+    return count >= group.min_select && count <= group.max_select;
+  });
   const unitPrice = useMemo(() => product.preco + chosenOptions.reduce((sum, option) => sum + option.precoExtra, 0) + chosenAddons.reduce((sum, addon) => sum + addon.preco, 0), [product.preco, chosenOptions, chosenAddons]);
-  const toggle = (group: MenuOptionGroup, id: string) => setSelected((previous) => { const current = previous[group.id] ?? []; if (current.includes(id)) return { ...previous, [group.id]: current.filter((value) => value !== id) }; if (current.length >= group.max_select) return previous; return { ...previous, [group.id]: [...current, id] }; });
-  const confirm = () => { if (!valid) return; const item: CartItem = { id: existingItem?.id ?? crypto.randomUUID(), product, options: chosenOptions, addons: chosenAddons, observation, quantity, unitPrice }; existingItem ? replaceItem(existingItem.id, item) : addItem(item); onClose(); };
+  const toggle = (group: MenuOptionGroup, id: string) => setSelected((previous) => {
+    const current = previous[group.id] ?? [];
+    if (current.includes(id)) return { ...previous, [group.id]: current.filter((value) => value !== id) };
+    if (current.length >= group.max_select) return previous;
+    return { ...previous, [group.id]: [...current, id] };
+  });
+  const confirm = () => {
+    if (!valid || quantity < 1) return;
+    const item: CartItem = { id: existingItem?.id ?? crypto.randomUUID(), product, options: chosenOptions, addons: chosenAddons, observation: observation.trim(), quantity, unitPrice };
+    if (existingItem) replaceItem(existingItem.id, item); else addItem(item);
+    onClose();
+  };
   const content = <div className="grid gap-5">
     {product.imagem_url && <Image src={product.imagem_url} alt={product.nome} width={640} height={480} className="aspect-[4/3] w-full rounded-xl object-cover" unoptimized />}
     <div><h2 className="text-2xl font-black">{product.nome}</h2>{product.descricao && <p className="mt-1 text-sm text-[var(--color-muted)]">{product.descricao}</p>}</div>
-    {groups.map((group) => { const multiple = group.max_select > 1 || group.min_select !== 1; return <fieldset key={group.id} className="grid gap-2"><legend className="font-bold">{group.nome} {group.obrigatorio && <span className="text-[var(--color-danger)]" aria-label="Obrigatório">*</span>}</legend>{options.filter((option) => option.group_id === group.id).map((option) => { const checked = (selected[group.id] ?? []).includes(option.id); return <label key={option.id} className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"><span>{option.nome}{option.preco_extra > 0 ? ` (+ R$ ${option.preco_extra.toFixed(2).replace(".", ",")})` : ""}</span>{multiple ? <Checkbox checked={checked} onChange={() => toggle(group, option.id)} /> : <input type="radio" name={`group-${group.id}`} checked={checked} onChange={() => setSelected((previous) => ({ ...previous, [group.id]: [option.id] }))} className="h-5 w-5 accent-[var(--color-primary)]" aria-label={`${group.nome}: ${option.nome}`} />}</label>; })}</fieldset>; })}
-    {availableAddonIds.length > 0 && <fieldset className="grid gap-2"><legend className="font-bold">Adicionais</legend>{addons.filter((addon) => availableAddonIds.includes(addon.id)).map((addon) => <label key={addon.id} className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"><span>{addon.nome} (+ R$ {addon.preco.toFixed(2).replace(".", ",")})</span><Checkbox checked={selectedAddons.includes(addon.id)} onChange={() => setSelectedAddons((current) => current.includes(addon.id) ? current.filter((value) => value !== addon.id) : [...current, addon.id])} /></label>)}</fieldset>}
+    {groups.map((group) => { const multiple = group.max_select > 1; const groupOptions = options.filter((option) => option.group_id === group.id && option.ativo); return <fieldset key={group.id} className="grid gap-2"><legend className="font-bold">{group.nome} {group.obrigatorio && <span className="text-[var(--color-danger)]" aria-label="Obrigatório">*</span>}</legend>{groupOptions.map((option) => { const checked = (selected[group.id] ?? []).includes(option.id); return <label key={option.id} className="flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"><span>{option.nome}{option.preco_extra > 0 ? ` (+ R$ ${option.preco_extra.toFixed(2).replace(".", ",")})` : ""}</span>{multiple ? <Checkbox checked={checked} onChange={() => toggle(group, option.id)} /> : <input type="radio" name={`group-${group.id}-${product.id}`} checked={checked} onChange={() => setSelected((previous) => ({ ...previous, [group.id]: [option.id] }))} className="h-5 w-5 accent-[var(--color-primary)]" aria-label={`${group.nome}: ${option.nome}`} />}</label>; })}</fieldset>; })}
+    {availableAddonIds.length > 0 && <fieldset className="grid gap-2"><legend className="font-bold">Adicionais</legend>{addons.filter((addon) => addon.ativo && availableAddonIds.includes(addon.id)).map((addon) => <label key={addon.id} className="flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"><span>{addon.nome} (+ R$ {addon.preco.toFixed(2).replace(".", ",")})</span><Checkbox checked={selectedAddons.includes(addon.id)} onChange={() => setSelectedAddons((current) => current.includes(addon.id) ? current.filter((value) => value !== addon.id) : [...current, addon.id])} /></label>)}</fieldset>}
     <Textarea value={observation} onChange={(event) => setObservation(event.target.value)} placeholder="Observação do item" aria-label="Observação do item" />
-    <div className="flex items-center justify-between gap-4"><div className="flex items-center gap-2"><Button variant="outline" size="sm" className="h-11 w-11 rounded-full p-0" onClick={() => setQuantity((current) => Math.max(1, current - 1))} aria-label="Diminuir quantidade">−</Button><span className="min-w-8 text-center font-bold" aria-live="polite">{quantity}</span><Button variant="outline" size="sm" className="h-11 w-11 rounded-full p-0" onClick={() => setQuantity((current) => current + 1)} aria-label="Aumentar quantidade">+</Button></div><strong className="text-lg font-black text-[var(--color-primary-dark)]">R$ {(unitPrice * quantity).toFixed(2).replace(".", ",")}</strong></div>
-    <Button size="lg" disabled={!valid} onClick={confirm} className="h-12 w-full rounded-xl">{existingItem ? "Salvar alterações" : "Adicionar ao pedido"}</Button>
+    <div className="flex items-center justify-between gap-4"><div className="flex items-center gap-2"><Button type="button" variant="outline" size="sm" className="h-11 w-11 rounded-full p-0" onClick={() => setQuantity((current) => Math.max(1, current - 1))} aria-label="Diminuir quantidade">−</Button><span className="min-w-8 text-center font-bold" aria-live="polite">{quantity}</span><Button type="button" variant="outline" size="sm" className="h-11 w-11 rounded-full p-0" onClick={() => setQuantity((current) => current + 1)} aria-label="Aumentar quantidade">+</Button></div><strong className="text-lg font-black text-[var(--color-primary-dark)]">R$ {(unitPrice * quantity).toFixed(2).replace(".", ",")}</strong></div>
+    <Button type="button" size="lg" disabled={!valid} onClick={confirm} className="h-12 w-full rounded-xl">{existingItem ? "Salvar alterações" : "Adicionar ao pedido"}</Button>
   </div>;
   return <><div className="hidden md:block"><Dialog open={open} onClose={onClose} title="Personalizar pedido">{content}</Dialog></div><div className="md:hidden"><BottomSheet open={open} onClose={onClose} title="Personalizar pedido">{content}</BottomSheet></div></>;
 }
