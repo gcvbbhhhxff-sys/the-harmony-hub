@@ -10,7 +10,7 @@ export default async function AdminLayout({children}:{children:React.ReactNode})
   if(!auth)return children;
   const admin=auth.admin;
   const links=[
-    {href:"/admin",label:"Dashboard",icon:LayoutDashboard,always:true},
+    {href:"/admin/painel",label:"Dashboard",icon:LayoutDashboard,always:true},
     {href:"/admin/pedidos",label:"Pedidos",icon:ClipboardList,always:true},
     {href:"/admin/cardapio",label:"Cardápio",icon:UtensilsCrossed,always:false},
     {href:"/admin/cupons",label:"Cupons",icon:TicketPercent,always:false},
