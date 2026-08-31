@@ -6,12 +6,11 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://illustrious-begonia
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Seu Restaurante — Delivery",
-    template: "%s | Seu Restaurante",
+    default: "Delivery",
+    template: "%s | Delivery",
   },
-  description:
-    "Peça online do seu restaurante com entrega rápida e segura. Cardápio completo, preços atualizados e acompanhamento de pedidos em tempo real.",
-  applicationName: "Seu Restaurante",
+  description: "Faça seu pedido online com praticidade e acompanhe o andamento da entrega.",
+  applicationName: "Delivery",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
@@ -21,16 +20,15 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "pt_BR",
-    siteName: "Seu Restaurante",
-    title: "Seu Restaurante — Delivery",
-    description:
-      "Peça online com entrega rápida e segura. Cardápio completo e acompanhamento de pedidos em tempo real.",
-    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Seu Restaurante" }],
+    siteName: "Delivery",
+    title: "Delivery",
+    description: "Faça seu pedido online com praticidade e acompanhe o andamento da entrega.",
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Delivery" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Seu Restaurante — Delivery",
-    description: "Peça online com entrega rápida e segura.",
+    title: "Delivery",
+    description: "Faça seu pedido online com praticidade e acompanhe o andamento da entrega.",
     images: ["/og-image.jpg"],
   },
   robots: { index: true, follow: true },
@@ -42,28 +40,9 @@ export const viewport: Viewport = {
   themeColor: "#0D0D0D",
 };
 
-const restaurantJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Restaurant",
-  name: "Seu Restaurante",
-  servesCuisine: ["Comida brasileira"],
-  priceRange: "$$",
-  acceptsReservations: "False",
-  url: siteUrl,
-};
-
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="pt-BR">
-      <head>
-        <script
-          type="application/ld+json"
-          // eslint-disable-next-line react/no-danger
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(restaurantJsonLd) }}
-        />
-      </head>
       <body>
         <a
           href="#conteudo-principal"
