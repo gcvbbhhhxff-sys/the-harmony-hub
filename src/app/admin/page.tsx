@@ -2,8 +2,16 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ClipboardList, DollarSign, ShoppingBag, Timer } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+type DashboardStat = {
+  label: string;
+  value: string | number;
+  hint: string;
+  Icon: LucideIcon;
+};
 
 export default async function AdminDashboard() {
   const supabase = await createClient();
@@ -26,6 +34,13 @@ export default async function AdminDashboard() {
       order.status_pagamento === "confirmado"
   ).length;
 
+  const stats: DashboardStat[] = [
+    { label: "Pedidos hoje", value: operational.length, hint: `${activeOrders} em andamento`, Icon: ShoppingBag },
+    { label: "Faturamento", value: `R$ ${revenue.toFixed(2).replace(".", ",")}`, hint: "Pedidos confirmados", Icon: DollarSign },
+    { label: "Aguardando", value: pending, hint: "Pagamento pendente", Icon: Timer },
+    { label: "Ticket médio", value: `R$ ${avg.toFixed(2).replace(".", ",")}`, hint: "Média dos pedidos", Icon: ClipboardList },
+  ];
+
   return (
     <main className="p-4 sm:p-6">
       <div className="mx-auto max-w-7xl">
@@ -43,20 +58,15 @@ export default async function AdminDashboard() {
         </div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            ["Pedidos hoje", operational.length, `${activeOrders} em andamento`, ShoppingBag],
-            ["Faturamento", `R$ ${revenue.toFixed(2).replace(".", ",")}`, "Pedidos confirmados", DollarSign],
-            ["Aguardando", pending, "Pagamento pendente", Timer],
-            ["Ticket médio", `R$ ${avg.toFixed(2).replace(".", ",")}`, "Média dos pedidos", ClipboardList],
-          ].map(([label, value, hint, Icon]) => (
-            <Card key={String(label)} className="rounded-2xl border-black/5 p-5 shadow-[0_12px_32px_rgba(17,17,17,.05)]">
+          {stats.map(({ label, value, hint, Icon }) => (
+            <Card key={label} className="rounded-2xl border-black/5 p-5 shadow-[0_12px_32px_rgba(17,17,17,.05)]">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-black/35">{label}</p>
-                  <p className="mt-2 text-2xl font-black leading-tight">{value as string}</p>
-                  <p className="mt-1 text-xs text-black/55">{hint as string}</p>
+                  <p className="mt-2 text-2xl font-black leading-tight">{value}</p>
+                  <p className="mt-1 text-xs text-black/55">{hint}</p>
                 </div>
-                {Icon ? <Icon className="mt-0.5 h-5 w-5 text-[#aa7f18]" /> : null}
+                <Icon className="mt-0.5 h-5 w-5 text-[#aa7f18]" />
               </div>
             </Card>
           ))}
