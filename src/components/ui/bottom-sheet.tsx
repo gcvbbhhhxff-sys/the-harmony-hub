@@ -16,16 +16,19 @@ export function BottomSheet({open,onClose,title,children}:BottomSheetProps){
   const previousBodyTop=body.style.top;
   const previousBodyWidth=body.style.width;
   const previousHtmlOverscroll=html.style.overscrollBehavior;
+  const previousBodyTouchAction=body.style.touchAction;
   body.style.overflow="hidden";
   body.style.position="fixed";
   body.style.top=`-${scrollY}px`;
   body.style.width="100%";
+  body.style.touchAction="none";
   html.style.overscrollBehavior="none";
   return()=>{
    body.style.overflow=previousBodyOverflow;
    body.style.position=previousBodyPosition;
    body.style.top=previousBodyTop;
    body.style.width=previousBodyWidth;
+   body.style.touchAction=previousBodyTouchAction;
    html.style.overscrollBehavior=previousHtmlOverscroll;
    window.scrollTo(0,scrollY);
   };
@@ -36,7 +39,7 @@ export function BottomSheet({open,onClose,title,children}:BottomSheetProps){
   <button type="button" aria-label="Fechar" className="absolute inset-0 z-0 h-full w-full bg-black/40" onClick={onClose}/>
   <section className="absolute bottom-0 left-0 right-0 z-10 max-h-[90vh] overflow-y-auto overscroll-contain touch-pan-y rounded-t-2xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl" role="dialog" aria-modal="true" aria-labelledby={title?"bottom-sheet-title":undefined} onClick={(event)=>event.stopPropagation()} onPointerDown={(event)=>event.stopPropagation()}>
    <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-black/20"/>
-   {title&&<h2 id="bottom-sheet-title" className="text-lg font-semibold">{title}</h2>}
+   {title&&<div className="flex items-center justify-between gap-4"><h2 id="bottom-sheet-title" className="text-lg font-semibold">{title}</h2><button type="button" aria-label="Fechar" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl font-semibold text-black/60 hover:bg-black/5 active:bg-black/10" onClick={onClose}>×</button></div>}
    <div className={cn(title&&"mt-4")}>{children}</div>
   </section>
  </div>;
