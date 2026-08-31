@@ -1,4 +1,4 @@
-import type { CreateOrderInput } from "@/server/actions/order";
+import type { CreateOrderInput } from "@/domains/order/types";
 
 const MAX_ITEMS = 50;
 const MAX_OPTION_IDS = 20;
