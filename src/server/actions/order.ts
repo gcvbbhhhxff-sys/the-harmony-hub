@@ -1,39 +1,65 @@
 "use server";
+
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+
 export type DraftOrderItem={productId:string;quantity:number;optionIds:string[];addonIds:string[];observation:string};
 export type AddressInput={rotulo?:string;rua:string;numero:string;complemento?:string;bairro:string;cidade:string;cep:string;referencia?:string};
 export type CreateOrderInput={items:DraftOrderItem[];customer:{nome:string;email:string};addressId?:string;address?:AddressInput;formaPagamento:"pix"|"cartao"|"na_entrega";observacoes?:string;couponCode?:string;consentAccepted?:boolean};
 type OptionRow={id:string;nome:string;preco_extra:number;group_id:string;option_groups:{product_id:string}|{product_id:string}[]|null};
 type AddonRow={id:string;nome:string;preco:number;ativo:boolean};
 const cleanup=async(db:Awaited<ReturnType<typeof createClient>>,addressId:string,created:boolean)=>{if(created)await db.from("addresses").delete().eq("id",addressId)};
+
 export async function createOrder(input:CreateOrderInput){
- const db=await createClient(); const {data:{user}}=await db.auth.getUser(); const adminDb=createAdminClient();
- if(!user)return{ok:false,message:"Sua sessão expirou. Entre novamente."}; if(!input.items.length)return{ok:false,message:"O carrinho está vazio."}; if(input.consentAccepted!==true)return{ok:false,message:"O consentimento é obrigatório."};
+ const db=await createClient(); const {data:{user}}=await db.auth.getUser();
+ if(!user)return{ok:false,message:"Sua sessão expirou. Entre novamente."};
+ if(!input.items.length)return{ok:false,message:"O carrinho está vazio."};
+ if(input.consentAccepted!==true)return{ok:false,message:"O consentimento é obrigatório."};
+ if(!input.customer.nome.trim()||!input.customer.email.includes("@"))return{ok:false,message:"Informe nome e e-mail válidos."};
+
  const {data:existing}=await db.from("customers").select("id").eq("user_id",user.id).maybeSingle(); let customerId=existing?.id;
  const phone=String(user.phone||"");
  if(!customerId){const created=await db.from("customers").insert({user_id:user.id,nome:input.customer.nome.trim(),telefone:phone,email:input.customer.email.trim()}).select("id").single();if(created.error||!created.data)return{ok:false,message:"Não foi possível criar seu cadastro."};customerId=created.data.id}
  else{const{error}=await db.from("customers").update({nome:input.customer.nome.trim(),email:input.customer.email.trim(),telefone:phone}).eq("id",customerId);if(error)return{ok:false,message:"Não foi possível atualizar seu cadastro."}}
- const{data:settings}=await db.from("restaurant_settings").select("valor_minimo_pedido").limit(1).maybeSingle();const minimum=Number(settings?.valor_minimo_pedido??0);
+
+ const{data:settings}=await db.from("restaurant_settings").select("valor_minimo_pedido,taxa_base_entrega").limit(1).maybeSingle();
+ const minimum=Number(settings?.valor_minimo_pedido??0); const baseDelivery=Number(settings?.taxa_base_entrega??0);
  let addressId:string;let addressData:AddressInput;let createdAddress=false;
  if(input.addressId){const{data}=await db.from("addresses").select("id,rua,numero,complemento,bairro,cidade,cep,referencia,rotulo").eq("id",input.addressId).eq("customer_id",customerId).maybeSingle();if(!data)return{ok:false,message:"Endereço inválido."};addressId=data.id;addressData=data}
- else if(input.address){const{data,error}=await db.from("addresses").insert({customer_id:customerId,...input.address,padrao:false}).select("id,rua,numero,complemento,bairro,cidade,cep,referencia,rotulo").single();if(error||!data)return{ok:false,message:"Não foi possível salvar o endereço."};addressId=data.id;addressData=data;createdAddress=true}
+ else if(input.address){if(!input.address.rua.trim()||!input.address.numero.trim()||!input.address.bairro.trim()||!input.address.cidade.trim()||!input.address.cep.trim()){return{ok:false,message:"Preencha rua, número, bairro, cidade e CEP."}}const{data,error}=await db.from("addresses").insert({customer_id:customerId,...input.address,padrao:false}).select("id,rua,numero,complemento,bairro,cidade,cep,referencia,rotulo").single();if(error||!data)return{ok:false,message:"Não foi possível salvar o endereço."};addressId=data.id;addressData=data;createdAddress=true}
  else return{ok:false,message:"Informe um endereço."};
+
  let subtotal=0;const validated:{productId:string;quantity:number;unitPrice:number;options:OptionRow[];addons:AddonRow[];observation:string}[]=[];
- for(const item of input.items){if(!Number.isInteger(item.quantity)||item.quantity<1||item.quantity>99){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Quantidade inválida."}}
+ for(const item of input.items){
+  if(!Number.isInteger(item.quantity)||item.quantity<1||item.quantity>99){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Quantidade inválida."}}
   const{data:product}=await db.from("products").select("id,preco,ativo").eq("id",item.productId).eq("ativo",true).maybeSingle();if(!product){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Um produto não está mais disponível."}}
-  const optionResult=item.optionIds.length?await db.from("options").select("id,nome,preco_extra,group_id,option_groups!inner(product_id)").in("id",item.optionIds):{data:[] as OptionRow[],error:null};const opts=(optionResult.data??[]) as OptionRow[];
+  const optionResult=item.optionIds.length?await db.from("options").select("id,nome,preco_extra,group_id,option_groups!inner(product_id)").eq("ativo",true).in("id",item.optionIds):{data:[] as OptionRow[],error:null};
+  const opts=(optionResult.data??[]) as OptionRow[];
   if(optionResult.error||opts.length!==item.optionIds.length||opts.some(o=>{const g=Array.isArray(o.option_groups)?o.option_groups[0]:o.option_groups;return !g||g.product_id!==product.id})){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Opção inválida."}}
-  const{data:groups}=await db.from("option_groups").select("id,min_select,max_select").eq("product_id",product.id);for(const g of groups??[]){const count=opts.filter(o=>o.group_id===g.id).length;if(count<g.min_select||count>g.max_select){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Seleção de opções inválida."}}}
-  const addonResult=item.addonIds.length?await db.from("addons").select("id,nome,preco,ativo").in("id",item.addonIds).eq("ativo",true):{data:[] as AddonRow[],error:null};const adds=(addonResult.data??[]) as AddonRow[];if(addonResult.error||adds.length!==item.addonIds.length){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Adicional inválido."}}
+  const{data:groups}=await db.from("option_groups").select("id,min_select,max_select").eq("product_id",product.id);
+  for(const g of groups??[]){const count=opts.filter(o=>o.group_id===g.id).length;if(count<g.min_select||count>g.max_select){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Seleção de opções inválida."}}
+  }
+  const addonResult=item.addonIds.length?await db.from("addons").select("id,nome,preco,ativo").in("id",item.addonIds).eq("ativo",true):{data:[] as AddonRow[],error:null};
+  const adds=(addonResult.data??[]) as AddonRow[];if(addonResult.error||adds.length!==item.addonIds.length){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Adicional inválido."}}
   if(item.addonIds.length){const{data:links}=await db.from("product_addons").select("addon_id").eq("product_id",product.id).in("addon_id",item.addonIds);if((links??[]).length!==item.addonIds.length){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Um adicional não se aplica a este produto."}}}
-  const unitPrice=Number(product.preco)+opts.reduce((s,o)=>s+Number(o.preco_extra),0)+adds.reduce((s,a)=>s+Number(a.preco),0);subtotal+=unitPrice*item.quantity;validated.push({productId:item.productId,quantity:item.quantity,unitPrice,options:opts,addons:adds,observation:item.observation||""})}
+  const unitPrice=Number(product.preco)+opts.reduce((s,o)=>s+Number(o.preco_extra),0)+adds.reduce((s,a)=>s+Number(a.preco),0);subtotal+=unitPrice*item.quantity;validated.push({productId:item.productId,quantity:item.quantity,unitPrice,options:opts,addons:adds,observation:item.observation||""});
+ }
+
  if(subtotal<minimum){await cleanup(db,addressId,createdAddress);return{ok:false,message:`O pedido mínimo é R$ ${minimum.toFixed(2).replace(".",",")}.`}}
- let desconto=0;let couponId:string|null=null;if(input.couponCode){const{data}=await adminDb.rpc("validar_cupom",{codigo:input.couponCode,valor_pedido:subtotal});const row=data?.[0];if(!row?.valido){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Cupom inválido ou indisponível."}}desconto=Number(row.desconto);const{data:coupon}=await adminDb.from("coupons").select("id").ilike("codigo",input.couponCode).maybeSingle();couponId=coupon?.id??null}
- const{data:zone}=await db.from("delivery_zones").select("taxa").eq("ativo",true).ilike("nome",addressData.bairro).maybeSingle();if(!zone){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Fora da área de entrega no momento."}}
- const total=Math.max(0,subtotal+Number(zone.taxa)-desconto);const{data:order,error}=await db.from("orders").insert({customer_id:customerId,address_id:addressId,subtotal,taxa_entrega:Number(zone.taxa),desconto,total,forma_pagamento:input.formaPagamento,status_pagamento:input.formaPagamento==="na_entrega"?"confirmado":"pendente",coupon_id:couponId,observacoes:input.observacoes||null}).select("id").single();if(error||!order){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Não foi possível criar o pedido."}}
- const{error:itemError}=await db.from("order_items").insert(validated.map(i=>({order_id:order.id,product_id:i.productId,quantidade:i.quantity,preco_unitario:i.unitPrice,opcoes_selecionadas:i.options,adicionais_selecionados:i.addons,observacao_item:i.observation})));if(itemError){await adminDb.from("orders").delete().eq("id",order.id);await cleanup(db,addressId,createdAddress);return{ok:false,message:"Não foi possível gravar os itens do pedido."}}
- const{error:historyError}=await db.from("order_status_history").insert({order_id:order.id,status:"recebido"});if(historyError){await adminDb.from("orders").delete().eq("id",order.id);await cleanup(db,addressId,createdAddress);return{ok:false,message:"Não foi possível registrar o histórico do pedido."}}
- if(input.couponCode){const{data:consumed}=await adminDb.rpc("consumir_cupom",{codigo:input.couponCode,valor_pedido:subtotal});if(consumed!==true){await adminDb.from("orders").delete().eq("id",order.id);await cleanup(db,addressId,createdAddress);return{ok:false,message:"O cupom não pôde ser confirmado."}}}
+ let desconto=0;let couponId:string|null=null;const adminDb=input.couponCode?createAdminClient():null;
+ if(input.couponCode&&adminDb){const{data}=await adminDb.rpc("validar_cupom",{codigo:input.couponCode,valor_pedido:subtotal});const row=Array.isArray(data)?data[0]:data;if(!row?.valido){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Cupom inválido ou indisponível."}}desconto=Number(row.desconto);const{data:coupon}=await adminDb.from("coupons").select("id").ilike("codigo",input.couponCode).maybeSingle();couponId=coupon?.id??null}
+
+ const{data:zones}=await db.from("delivery_zones").select("taxa").eq("ativo",true).ilike("nome",addressData.bairro).limit(1);
+ const matchedZone=zones?.[0];
+ const hasActiveZones=(await db.from("delivery_zones").select("id",{count:"exact",head:true}).eq("ativo",true)).count??0;
+ if(!matchedZone&&hasActiveZones>0){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Fora da área de entrega no momento."}}
+ const deliveryFee=matchedZone?Number(matchedZone.taxa):baseDelivery;
+ const total=Math.max(0,subtotal+deliveryFee-desconto);
+ const{data:order,error}=await db.from("orders").insert({customer_id:customerId,address_id:addressId,subtotal,taxa_entrega:deliveryFee,desconto,total,forma_pagamento:input.formaPagamento,status_pagamento:input.formaPagamento==="na_entrega"?"confirmado":"pendente",coupon_id:couponId,observacoes:input.observacoes?.trim()||null}).select("id").single();
+ if(error||!order){await cleanup(db,addressId,createdAddress);return{ok:false,message:"Não foi possível criar o pedido."}}
+
+ const{error:itemError}=await db.from("order_items").insert(validated.map(i=>({order_id:order.id,product_id:i.productId,quantidade:i.quantity,preco_unitario:i.unitPrice,opcoes_selecionadas:i.options,adicionais_selecionados:i.addons,observacao_item:i.observation})));if(itemError){if(adminDb)await adminDb.from("orders").delete().eq("id",order.id);await cleanup(db,addressId,createdAddress);return{ok:false,message:"Não foi possível gravar os itens do pedido."}}
+ const{error:historyError}=await db.from("order_status_history").insert({order_id:order.id,status:"recebido"});if(historyError){if(adminDb)await adminDb.from("orders").delete().eq("id",order.id);await cleanup(db,addressId,createdAddress);return{ok:false,message:"Não foi possível registrar o histórico do pedido."}}
+ if(input.couponCode&&adminDb){const{data:consumed}=await adminDb.rpc("consumir_cupom",{codigo:input.couponCode,valor_pedido:subtotal});if(consumed!==true){await adminDb.from("orders").delete().eq("id",order.id);await cleanup(db,addressId,createdAddress);return{ok:false,message:"O cupom não pôde ser confirmado."}}}
  return{ok:true,orderId:order.id,total};
 }
