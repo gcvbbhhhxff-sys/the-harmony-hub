@@ -5,38 +5,92 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/server/admin";
 
+type SettingsForm = {
+  id?: string;
+  nome: string;
+  logo_url: string;
+  background_url: string;
+  descricao: string;
+  telefone: string;
+  endereco: string;
+  status_manual: "automatico" | "aberto" | "fechado";
+  taxa_base_entrega: number;
+  valor_minimo_pedido: number;
+  chave_pix: string;
+  whatsapp: string;
+  tempo_estimado: string;
+  horario_funcionamento: Record<string, { abertura: string; fechamento: string; ativo: boolean }>;
+};
+
+const defaultSettings = {
+  nome: "Seu restaurante",
+  logo_url: null,
+  background_url: null,
+  descricao: null,
+  telefone: null,
+  endereco: null,
+  status_manual: "automatico" as const,
+  taxa_base_entrega: 0,
+  valor_minimo_pedido: 0,
+  chave_pix: null,
+  whatsapp: null,
+  tempo_estimado: null,
+  horario_funcionamento: {},
+};
+
 async function guard() {
   const auth = await requireAdmin();
-  if (!auth || auth.admin.papel !== "admin") {
-    throw new Error("Não autorizado.");
-  }
+  if (!auth || auth.admin.papel !== "admin") throw new Error("Não autorizado.");
   return createClient();
 }
 
-export async function saveRestaurantSettings(form: any) {
+async function getSettingsId(db: Awaited<ReturnType<typeof createClient>>) {
+  const { data, error } = await db.from("restaurant_settings").select("id").limit(1).maybeSingle();
+  if (error) throw error;
+  return data?.id ?? null;
+}
+
+async function ensureSettingsRow(db: Awaited<ReturnType<typeof createClient>>) {
+  const id = await getSettingsId(db);
+  if (id) return id;
+  const { data, error } = await db.from("restaurant_settings").insert(defaultSettings).select("id").single();
+  if (error || !data) throw error ?? new Error("Não foi possível criar as configurações.");
+  return data.id as string;
+}
+
+export async function saveRestaurantSettings(form: SettingsForm) {
   try {
     const db = await guard();
-    
-    const { error } = await db
-      .from("restaurant_settings")
-      .upsert({
-        nome: form.nome || "Seu Restaurante",
-        logo_url: form.logo_url || null,
-        background_url: form.background_url || null,
-        taxa_base_entrega: Number(form.taxa_base_entrega ?? 0),
-        valor_minimo_pedido: Number(form.valor_minimo_pedido ?? 0),
-        chave_pix: form.chave_pix || null,
-        whatsapp: form.whatsapp || null,
-        tempo_estimado: form.tempo_estimado || "30–45 minutos",
-        horario_funcionamento: form.horario_funcionamento || {},
-      });
+    const cleanName = form.nome.trim();
+    if (!cleanName) return { ok: false, message: "Informe o nome do restaurante." };
+    if (!Number.isFinite(Number(form.taxa_base_entrega)) || Number(form.taxa_base_entrega) < 0) return { ok: false, message: "Taxa de entrega inválida." };
+    if (!Number.isFinite(Number(form.valor_minimo_pedido)) || Number(form.valor_minimo_pedido) < 0) return { ok: false, message: "Pedido mínimo inválido." };
 
-    if (error) {
-      console.error("[saveRestaurantSettings]", error);
+    const payload = {
+      nome: cleanName,
+      logo_url: form.logo_url.trim() || null,
+      background_url: form.background_url.trim() || null,
+      descricao: form.descricao.trim() || null,
+      telefone: form.telefone.trim() || null,
+      endereco: form.endereco.trim() || null,
+      status_manual: form.status_manual,
+      taxa_base_entrega: Number(form.taxa_base_entrega),
+      valor_minimo_pedido: Number(form.valor_minimo_pedido),
+      chave_pix: form.chave_pix.trim() || null,
+      whatsapp: form.whatsapp.trim() || null,
+      tempo_estimado: form.tempo_estimado.trim() || null,
+      horario_funcionamento: form.horario_funcionamento ?? {},
+    };
+
+    const id = form.id ?? (await getSettingsId(db));
+    const result = id ? await db.from("restaurant_settings").update(payload).eq("id", id) : await db.from("restaurant_settings").insert(payload);
+    if (result.error) {
+      console.error("[saveRestaurantSettings]", result.error);
       return { ok: false, message: "Erro ao salvar configurações." };
     }
 
     revalidatePath("/");
+    revalidatePath("/admin/configuracoes");
     return { ok: true, message: "Configurações salvas." };
   } catch (error) {
     console.error("[saveRestaurantSettings]", error);
@@ -44,45 +98,41 @@ export async function saveRestaurantSettings(form: any) {
   }
 }
 
+async function validateImage(file: File) {
+  const allowed = new Set(["image/png", "image/jpeg", "image/webp", "image/svg+xml"]);
+  if (!allowed.has(file.type)) return "Formato de imagem não permitido. Use PNG, JPEG, WEBP ou SVG.";
+  if (file.size > 5 * 1024 * 1024) return "A imagem deve ter no máximo 5 MB.";
+  return null;
+}
+
 export async function uploadRestaurantLogo(formData: FormData) {
   try {
-    await guard();
-    
+    const db = await guard();
     const file = formData.get("file");
-    if (!(file instanceof File)) {
-      return { ok: false, message: "Arquivo inválido." };
-    }
+    if (!(file instanceof File)) return { ok: false, message: "Arquivo inválido." };
+    const validationError = await validateImage(file);
+    if (validationError) return { ok: false, message: validationError };
 
+    const settingsId = await ensureSettingsRow(db);
     const adminDb = createAdminClient();
-    const fileName = `logo-${Date.now()}.${file.name.split(".").pop()}`;
-    
-    const { error: uploadError } = await adminDb.storage
-      .from("restaurant-assets")
-      .upload(fileName, file, { upsert: true });
-
+    const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+    const fileName = `logo/${crypto.randomUUID()}.${ext}`;
+    const { error: uploadError } = await adminDb.storage.from("restaurant-assets").upload(fileName, file, { upsert: false, contentType: file.type });
     if (uploadError) {
       console.error("[uploadRestaurantLogo]", uploadError);
       return { ok: false, message: "Erro ao fazer upload da logo." };
     }
 
     const { data } = adminDb.storage.from("restaurant-assets").getPublicUrl(fileName);
-    const url = data?.publicUrl;
-
-    if (!url) {
-      return { ok: false, message: "Erro ao obter URL da logo." };
-    }
-
-    const db = await createClient();
-    const { error: updateError } = await db
-      .from("restaurant_settings")
-      .update({ logo_url: url });
-
+    const url = data.publicUrl;
+    const { error: updateError } = await db.from("restaurant_settings").update({ logo_url: url }).eq("id", settingsId);
     if (updateError) {
       console.error("[uploadRestaurantLogo]", updateError);
-      return { ok: false, message: "Erro ao salvar logo." };
+      return { ok: false, message: "Erro ao salvar a logo no restaurante." };
     }
 
     revalidatePath("/");
+    revalidatePath("/admin/configuracoes");
     return { ok: true, url };
   } catch (error) {
     console.error("[uploadRestaurantLogo]", error);
@@ -92,43 +142,32 @@ export async function uploadRestaurantLogo(formData: FormData) {
 
 export async function uploadRestaurantBackground(formData: FormData) {
   try {
-    await guard();
-    
+    const db = await guard();
     const file = formData.get("file");
-    if (!(file instanceof File)) {
-      return { ok: false, message: "Arquivo inválido." };
-    }
+    if (!(file instanceof File)) return { ok: false, message: "Arquivo inválido." };
+    const validationError = await validateImage(file);
+    if (validationError) return { ok: false, message: validationError };
 
+    const settingsId = await ensureSettingsRow(db);
     const adminDb = createAdminClient();
-    const fileName = `background-${Date.now()}.${file.name.split(".").pop()}`;
-    
-    const { error: uploadError } = await adminDb.storage
-      .from("restaurant-assets")
-      .upload(fileName, file, { upsert: true });
-
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const fileName = `background/${crypto.randomUUID()}.${ext}`;
+    const { error: uploadError } = await adminDb.storage.from("restaurant-assets").upload(fileName, file, { upsert: false, contentType: file.type });
     if (uploadError) {
       console.error("[uploadRestaurantBackground]", uploadError);
-      return { ok: false, message: "Erro ao fazer upload da imagem." };
+      return { ok: false, message: "Erro ao fazer upload da imagem de fundo." };
     }
 
     const { data } = adminDb.storage.from("restaurant-assets").getPublicUrl(fileName);
-    const url = data?.publicUrl;
-
-    if (!url) {
-      return { ok: false, message: "Erro ao obter URL da imagem." };
-    }
-
-    const db = await createClient();
-    const { error: updateError } = await db
-      .from("restaurant_settings")
-      .update({ background_url: url });
-
+    const url = data.publicUrl;
+    const { error: updateError } = await db.from("restaurant_settings").update({ background_url: url }).eq("id", settingsId);
     if (updateError) {
       console.error("[uploadRestaurantBackground]", updateError);
-      return { ok: false, message: "Erro ao salvar imagem." };
+      return { ok: false, message: "Erro ao salvar a imagem de fundo." };
     }
 
     revalidatePath("/");
+    revalidatePath("/admin/configuracoes");
     return { ok: true, url };
   } catch (error) {
     console.error("[uploadRestaurantBackground]", error);
