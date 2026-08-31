@@ -1,17 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
-import { requireAdmin } from "@/server/admin";
-
-async function guard() {
-  const auth = await requireAdmin();
-  if (!auth || auth.admin.papel !== "admin") throw new Error("Não autorizado.");
-  return createClient();
-}
+import { getAdminDb } from "@/server/actions/admin-context";
 
 export async function saveCategory(input: { id?: string; nome: string; ordem: number; ativo: boolean }) {
-  const db = await guard();
+  const db = await getAdminDb();
   const nome = input.nome.trim();
   if (!nome || !Number.isInteger(input.ordem) || input.ordem < 0) return { ok: false, message: "Categoria inválida." } as const;
 
@@ -26,7 +19,7 @@ export async function saveCategory(input: { id?: string; nome: string; ordem: nu
 }
 
 export async function deleteCategory(id: string) {
-  const db = await guard();
+  const db = await getAdminDb();
   const { data: products, error: productsError } = await db.from("products").select("id").eq("category_id", id).limit(1);
   if (productsError) return { ok: false, message: "Não foi possível verificar os produtos da categoria." } as const;
   if (products?.length) return { ok: false, message: "Não exclua uma categoria com produtos. Mova os produtos primeiro." } as const;
