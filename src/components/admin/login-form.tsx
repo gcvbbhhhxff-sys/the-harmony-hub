@@ -25,7 +25,7 @@ export function LoginForm() {
       setMessage(result.message || "Não foi possível entrar.");
       return;
     }
-    router.replace("/admin/painel");
+    router.replace("/admin");
     router.refresh();
   });
 
