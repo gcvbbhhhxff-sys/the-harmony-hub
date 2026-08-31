@@ -4,26 +4,26 @@ import { requireAdmin } from "@/server/admin";
 import { Logo } from "@/components/ui/logo";
 import { LayoutDashboard, ClipboardList, UtensilsCrossed, TicketPercent, MapPinned, Settings } from "lucide-react";
 
-export const dynamic="force-dynamic";
+export const dynamic = "force-dynamic";
 
-export default async function AdminLayout({children}:{children:React.ReactNode}){
-  const auth=await requireAdmin();
-  if(!auth) redirect("/admin/login");
-  const admin=auth.admin;
-  const links=[
-    {href:"/admin/painel",label:"Dashboard",icon:LayoutDashboard,always:true},
-    {href:"/admin/pedidos",label:"Pedidos",icon:ClipboardList,always:true},
-    {href:"/admin/cardapio",label:"Cardápio",icon:UtensilsCrossed,always:false},
-    {href:"/admin/cupons",label:"Cupons",icon:TicketPercent,always:false},
-    {href:"/admin/zonas-de-entrega",label:"Entrega",icon:MapPinned,always:false},
-    {href:"/admin/configuracoes",label:"Configurações",icon:Settings,always:false},
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const auth = await requireAdmin();
+  if (!auth) redirect("/admin/login");
+  const admin = auth.admin;
+  const links = [
+    { href: "/admin", label: "Dashboard", icon: LayoutDashboard, always: true },
+    { href: "/admin/pedidos", label: "Pedidos", icon: ClipboardList, always: true },
+    { href: "/admin/cardapio", label: "Cardápio", icon: UtensilsCrossed, always: false },
+    { href: "/admin/cupons", label: "Cupons", icon: TicketPercent, always: false },
+    { href: "/admin/zonas-de-entrega", label: "Entrega", icon: MapPinned, always: false },
+    { href: "/admin/configuracoes", label: "Configurações", icon: Settings, always: false },
   ];
   return <div className="min-h-screen bg-[#f7f5f1] md:flex">
     <aside className="border-b border-white/10 bg-[#0d1013] text-white md:sticky md:top-0 md:h-screen md:w-[260px] md:shrink-0 md:border-b-0">
       <div className="flex items-center gap-3 px-4 py-4 sm:px-5 sm:py-5"><Logo size={48} className="shrink-0"/><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.23em] text-[#f4bf32]">Painel</p><p className="truncate text-base font-black">Gerência</p></div></div>
       <div className="px-4 pb-3 md:pb-4"><div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"><p className="text-xs text-white/55">Acesso</p><p className="mt-0.5 truncate text-sm font-bold capitalize">{admin.papel}</p></div></div>
       <nav className="flex gap-2 overflow-x-auto px-3 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:gap-1 md:overflow-visible md:px-3 md:pb-5" aria-label="Navegação da gerência">
-        {links.filter((item)=>item.always||admin.papel==="admin").map(({href,label,icon:Icon})=><Link key={href} href={href} className="group flex min-h-11 shrink-0 items-center gap-3 rounded-xl px-3.5 text-sm font-bold text-white/70 transition hover:bg-white/10 hover:text-white md:w-full"><Icon className="h-4 w-4 shrink-0 text-[#f4bf32] transition group-hover:scale-105"/><span>{label}</span></Link>)}
+        {links.filter((item) => item.always || admin.papel === "admin").map(({ href, label, icon: Icon }) => <Link key={href} href={href} className="group flex min-h-11 shrink-0 items-center gap-3 rounded-xl px-3.5 text-sm font-bold text-white/70 transition hover:bg-white/10 hover:text-white md:w-full"><Icon className="h-4 w-4 shrink-0 text-[#f4bf32] transition group-hover:scale-105"/><span>{label}</span></Link>)}
       </nav>
     </aside>
     <section className="min-w-0 flex-1">
