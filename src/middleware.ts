@@ -39,7 +39,7 @@ export async function middleware(request: NextRequest) {
   if (adminError || !admin) return NextResponse.redirect(new URL("/admin/login?error=unauthorized", request.url));
 
   const adminOnly = /^\/admin\/(cardapio|cupons|zonas-de-entrega|configuracoes)(\/|$)/;
-  if (admin.papel !== "admin" && adminOnly.test(pathname)) return NextResponse.redirect(new URL("/admin/painel", request.url));
+  if (admin.papel !== "admin" && adminOnly.test(pathname)) return NextResponse.redirect(new URL("/admin", request.url));
 
   return response;
 }
