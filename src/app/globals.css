@@ -3,15 +3,16 @@
 @tailwind utilities;
 
 :root {
-  --color-primary: #d3a328;
-  --color-primary-dark: #aa7f18;
-  --color-secondary: #121212;
-  --color-background: #f7f5f1;
+  --color-primary: #d7ad35;
+  --color-primary-dark: #b88919;
+  --color-primary-deep: #8b6711;
+  --color-secondary: #0d1013;
+  --color-background: #f4f1ea;
   --color-surface: #ffffff;
-  --color-surface-soft: #f1eee7;
-  --color-border: #e7e2d8;
+  --color-surface-soft: #ece7dc;
+  --color-border: #ddd6c9;
   --color-text: #171717;
-  --color-muted: #6f6a62;
+  --color-muted: #716c64;
   --color-success: #2f7a4d;
   --color-danger: #b3261e;
   --font-body: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -33,13 +34,95 @@ a { color: inherit; }
 button, input, textarea, select { font: inherit; }
 button { -webkit-tap-highlight-color: transparent; }
 
-::selection { background: rgba(211,163,40,.25); }
+::selection { background: rgba(215,173,53,.28); }
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 3px;
+  }
+}
 
 @layer utilities {
   .safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
   .safe-top { padding-top: max(1rem, env(safe-area-inset-top)); }
+  .premium-shadow { box-shadow: 0 18px 55px rgba(18, 18, 18, .08), 0 4px 16px rgba(18, 18, 18, .04); }
+  .premium-shadow-strong { box-shadow: 0 28px 80px rgba(18, 18, 18, .16), 0 8px 24px rgba(18, 18, 18, .06); }
+  .premium-glass { background: rgba(13, 16, 19, .72); border: 1px solid rgba(255,255,255,.10); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+  .premium-card { border: 1px solid rgba(17,17,17,.06); box-shadow: 0 16px 50px rgba(17,17,17,.07); }
+  .animate-rise { animation: rise-in .6s cubic-bezier(.22,1,.36,1) both; }
+  .animate-fade { animation: fade-in .5s ease both; }
+}
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+body:has(#inicio) {
+  background: #0d1013;
+}
+
+body:has(#inicio) main {
+  background: var(--color-background);
+}
+
+body:has(#inicio) button,
+body:has(#inicio) a {
+  transition-timing-function: cubic-bezier(.22,1,.36,1);
+}
+
+body:has(#inicio) button:not(:disabled):active {
+  transform: translateY(1px) scale(.985);
+}
+
+body:has(#inicio) #inicio > div:last-child > div {
+  animation: rise-in .8s cubic-bezier(.22,1,.36,1) both;
+}
+
+body:has(#inicio) #inicio h1 {
+  text-wrap: balance;
+  text-shadow: 0 14px 36px rgba(0,0,0,.22);
+}
+
+body:has(#inicio) #inicio p:not([class*="uppercase"]) {
+  color: rgba(255,255,255,.86);
+}
+
+body:has(#inicio) section[id="cardapio"] > div > h2,
+body:has(#inicio) section[id="ofertas"] h2 {
+  letter-spacing: -.035em;
+}
+
+body:has(#inicio) .group:hover {
+  transition-duration: 260ms;
+}
+
+body:has(#inicio) .group:hover > div:first-child {
+  box-shadow: inset 0 0 0 1px rgba(215,173,53,.08);
+}
+
+body:has(#inicio) aside > div {
+  box-shadow: 0 24px 70px rgba(18,18,18,.10);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
 }
 
 @media (max-width: 640px) {
   body { overflow-x: hidden; }
+  body:has(#inicio) #inicio {
+    min-height: 520px;
+  }
 }
