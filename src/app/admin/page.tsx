@@ -13,6 +13,8 @@ type DashboardStat = {
   Icon: LucideIcon;
 };
 
+const ACTIVE_STATUSES = ["recebido", "preparando", "pronto", "saiu_para_entrega"] as const;
+
 export default async function AdminDashboard() {
   const supabase = await createClient();
   const start = new Date();
@@ -24,21 +26,17 @@ export default async function AdminDashboard() {
     .order("criado_em", { ascending: false });
 
   const rows = orders ?? [];
-  const operational = rows.filter((order) => order.status_pagamento === "confirmado");
+  const operational = rows.filter((order) => order.status !== "cancelado");
   const revenue = operational.reduce((sum, order) => sum + Number(order.total), 0);
   const avg = operational.length ? revenue / operational.length : 0;
-  const pending = rows.filter((order) => order.status_pagamento === "pendente").length;
-  const activeOrders = rows.filter(
-    (order) =>
-      ["recebido", "preparando", "pronto", "saiu_para_entrega"].includes(order.status) &&
-      order.status_pagamento === "confirmado"
-  ).length;
+  const pending = rows.filter((order) => order.status_pagamento === "pendente" && order.status !== "cancelado").length;
+  const activeOrders = operational.filter((order) => ACTIVE_STATUSES.includes(order.status as (typeof ACTIVE_STATUSES)[number])).length;
 
   const stats: DashboardStat[] = [
     { label: "Pedidos hoje", value: operational.length, hint: `${activeOrders} em andamento`, Icon: ShoppingBag },
-    { label: "Faturamento", value: `R$ ${revenue.toFixed(2).replace(".", ",")}`, hint: "Pedidos confirmados", Icon: DollarSign },
+    { label: "Valor dos pedidos", value: `R$ ${revenue.toFixed(2).replace(".", ",")}`, hint: "Pedidos não cancelados", Icon: DollarSign },
     { label: "Aguardando", value: pending, hint: "Pagamento pendente", Icon: Timer },
-    { label: "Ticket médio", value: `R$ ${avg.toFixed(2).replace(".", ",")}`, hint: "Média dos pedidos", Icon: ClipboardList },
+    { label: "Ticket médio", value: `R$ ${avg.toFixed(2).replace(".", ",")}`, hint: "Pedidos não cancelados", Icon: ClipboardList },
   ];
 
   return (
@@ -88,10 +86,12 @@ export default async function AdminDashboard() {
                 <p className="mt-1 text-sm text-black/55">Você verá os pedidos aqui conforme eles chegarem</p>
               </div>
             ) : (
-              <table className="w-full">
-                <thead><tr className="border-b border-black/5 bg-black/2"><th className="px-4 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-black/55">ID</th><th className="px-4 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-black/55">Status</th><th className="px-4 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-black/55">Total</th><th className="px-4 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-black/55">Horário</th></tr></thead>
-                <tbody>{rows.slice(0, 5).map((order) => <tr key={order.id} className="border-b border-black/5 hover:bg-black/2"><td className="px-4 py-3 text-sm font-mono text-black/75">{order.id.slice(0, 8)}</td><td className="px-4 py-3"><Badge status={order.status === "saiu_para_entrega" ? "saiu" : order.status}>{order.status}</Badge></td><td className="px-4 py-3 font-black">R$ {Number(order.total).toFixed(2).replace(".", ",")}</td><td className="px-4 py-3 text-sm text-black/55">{new Date(order.criado_em).toLocaleTimeString("pt-BR")}</td></tr>)}</tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px]">
+                  <thead><tr className="border-b border-black/5 bg-black/2"><th className="px-4 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-black/55">ID</th><th className="px-4 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-black/55">Status</th><th className="px-4 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-black/55">Total</th><th className="px-4 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-black/55">Horário</th></tr></thead>
+                  <tbody>{rows.slice(0, 5).map((order) => <tr key={order.id} className="border-b border-black/5 hover:bg-black/2"><td className="px-4 py-3 text-sm font-mono text-black/75">{order.id.slice(0, 8)}</td><td className="px-4 py-3"><Badge status={order.status === "saiu_para_entrega" ? "saiu" : order.status}>{order.status}</Badge></td><td className="px-4 py-3 font-black">R$ {Number(order.total).toFixed(2).replace(".", ",")}</td><td className="px-4 py-3 text-sm text-black/55">{new Date(order.criado_em).toLocaleTimeString("pt-BR")}</td></tr>)}</tbody>
+                </table>
+              </div>
             )}
           </div>
         </Card>
