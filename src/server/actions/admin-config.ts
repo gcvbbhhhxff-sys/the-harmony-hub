@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin } from "@/server/admin";
+import { getAdminDb } from "@/server/actions/admin-context";
 
 export { saveCoupon } from "@/server/actions/admin-coupons";
 export { saveDeliveryZone } from "@/server/actions/admin-delivery-zones";
@@ -41,12 +41,6 @@ const DEFAULT_SETTINGS = {
   tempo_estimado: null,
   horario_funcionamento: {},
 };
-
-async function getAdminClient() {
-  const auth = await requireAdmin();
-  if (!auth || auth.admin.papel !== "admin") throw new Error("Não autorizado.");
-  return createClient();
-}
 
 async function getSettingsId(db: Awaited<ReturnType<typeof createClient>>) {
   const { data, error } = await db.from("restaurant_settings").select("id").limit(1).maybeSingle();
@@ -91,7 +85,7 @@ function buildSettingsPayload(form: SettingsForm) {
 
 export async function saveRestaurantSettings(form: SettingsForm) {
   try {
-    const db = await getAdminClient();
+    const db = await getAdminDb();
     const validation = validateSettings(form);
     if (!validation.ok) return validation;
 
@@ -156,7 +150,7 @@ async function uploadRestaurantAsset(db: Awaited<ReturnType<typeof createClient>
 }
 
 async function uploadAsset(formData: FormData, folder: "logo" | "background") {
-  const db = await getAdminClient();
+  const db = await getAdminDb();
   const file = formData.get("file");
   if (!(file instanceof File)) return { ok: false, message: "Arquivo inválido." } as const;
   return uploadRestaurantAsset(db, file, folder);
