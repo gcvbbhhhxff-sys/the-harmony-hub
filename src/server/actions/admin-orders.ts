@@ -26,7 +26,7 @@ export async function updateOrderStatus(orderId: string, status: string, reason?
     const { error: historyError } = await db.from("order_status_history").insert({
       order_id: orderId,
       status,
-      observacao: reason?.trim() || null,
+      motivo_cancelamento: reason?.trim() || null,
     });
     if (historyError) {
       console.error("[updateOrderStatus/history]", historyError);
